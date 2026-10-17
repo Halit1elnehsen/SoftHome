@@ -21,16 +21,24 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "SoftHome API v1");
+    c.RoutePrefix = "swagger";
+});
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+// Kök adrese (/) gelindiğinde doğrudan Swagger arayüzüne yönlendir
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.MapControllers();
 
