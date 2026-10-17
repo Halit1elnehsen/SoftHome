@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SoftHome - Ortak Ev Bütçe ve Gider Takibi</title>
+  <meta name="description" content="Ev arkadaşları ve ortak yaşam alanları için modern gider takibi, borç bölüşümü ve hesaplaşma PWA uygulaması.">
+
+  <!-- PWA & Apple Web App Meta Etiketleri -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F2F2F7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SoftHome">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+
+  <!-- Google Fonts & Font Awesome İkonları -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Özel Tasarım Stilleri -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- MOBİL TELEFON ÇERÇEVESİ (Masaüstünde önizleme çerçevesi, mobilde tam ekran PWA) -->
+  <div class="mobile-frame">
+    
+    <!-- SİMÜLE EDİLMİŞ DYNAMIC ISLAND (Masaüstü görünümde) -->
+    <div class="ios-island">
+      <div class="island-camera"></div>
+      <div class="island-sensor"></div>
+    </div>
+
+    <!-- ANLIK BİLDİRİM TOAST'I -->
+    <div class="notification" id="notification">
+      <i class="fa-solid fa-circle-check" style="color:var(--success);"></i>
+      <span id="notifText">İşlem başarıyla gerçekleştirildi</span>
+    </div>
+
+    <!-- ÜST BAŞLIK BÖLÜMÜ -->
+    <header class="header">
+      <div class="header-left">
+        <div class="house-badge" onclick="openModal('householdModal')">
+          <i class="fa-solid fa-house-chimney"></i> Güneş Apt. No:4 • 4 Kişi
+        </div>
+        <h1 id="pageTitle">Ev Özetin</h1>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" onclick="toggleTheme()" title="Karanlık / Aydınlık Mod">
+          <i class="fa-solid fa-moon" id="headerThemeIcon"></i>
+        </button>
+        <button class="icon-btn" onclick="openModal('iosGuideModal')" title="iPhone PWA Kurulum">
+          <i class="fa-solid fa-arrow-down-to-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ANA İÇERİK KAYDIRMA ALANI -->
+    <main class="content">
+      
+      <!-- ================= 1. EKRAN: EV ÖZETİN (DASHBOARD) ================= -->
+      <section id="screen-home" class="screen active">
+        
+        <!-- iPhone PWA Bilgilendirme Kartı -->
+        <div class="ios-install-banner" id="pwaBanner">
+          <div class="ios-install-icon">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+          </div>
+          <div class="ios-install-text" style="flex:1;">
+            <h4>iPhone'a Uygulama Olarak Ekle</h4>
+            <p>Safari'den 'Ana Ekrana Ekle' diyerek tam ekran kullan.</p>
+          </div>
+          <button class="ios-install-btn" onclick="openModal('iosGuideModal')">Nasıl?</button>
+        </div>
+
+        <!-- CÜZDAN / HESAP KARTI -->
+        <div class="wallet-card">
+          <div class="wallet-header">
+            <span><i class="fa-solid fa-wallet"></i> HESAP DURUMUN</span>
+            <span style="font-size:10px; font-weight:600; opacity:0.8;">Canlı Bakiye</span>
+          </div>
+
+          <div class="wallet-balance-wrap">
+            <div class="wallet-balance" id="walletBalance">0.00</div>
+            <span class="currency">₺</span>
+          </div>
+
+          <div class="wallet-status" id="walletStatus">
+            <i class="fa-solid fa-arrow-down-left"></i> Evden Toplam Alacağın Var
+          </div>
+
+          <!-- Alt İstatistik Kutuları -->
+          <div class="wallet-stats-row">
+            <div class="stat-box">
+              <span class="stat-label">Toplam Gider</span>
+              <span class="stat-val" id="statTotalExpense">0.00 ₺</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Ödediğin</span>
+              <span class="stat-val" id="statMyPaid">0.00 ₺</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">Senin Payın</span>
+              <span class="stat-val" id="statMyShare">0.00 ₺</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KİM KİME NE VERECEK AKSİYON BUTONU -->
+        <button class="debt-action-btn" onclick="openModal('settlementsModal')">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <i class="fa-solid fa-scale-balanced" style="font-size:16px;"></i>
+            <span>Kim Kime Ne Verecek?</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="debt-badge" id="debtActionCount">Hesaplanıyor</span>
+            <i class="fa-solid fa-chevron-right" style="font-size:12px; opacity:0.7;"></i>
+          </div>
+        </button>
+
+        <!-- SON İŞLEMLER BAŞLIĞI VE FİLTRE BUTONU -->
+        <div class="filter-header-container">
+          <h2 class="section-title">Son İşlemler</h2>
+          <button class="filter-btn" onclick="openModal('filterModal')">
+            <span id="activeFilterText">Tümü</span> <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i>
+          </button>
+        </div>
+
+        <!-- HARCAMA AKIŞI LİSTESİ -->
+        <div class="expense-list" id="expenseList">
+          <!-- Javascript tarafından dinamik render edilir -->
+        </div>
+
+      </section>
+
+      <!-- ================= 2. EKRAN: YENİ HARCAMA EKLE ================= -->
+      <section id="screen-add" class="screen">
+        
+        <!-- Tutar Girişi (Büyük fontlu şık iOS input) -->
+        <div class="amount-input-box">
+          <div class="amount-input-label">HARCAMA TUTARI</div>
+          <input type="text" inputmode="decimal" id="calcAmount" class="amount-input" placeholder="0.00 ₺" oninput="formatCurrency(this)">
+        </div>
+
+        <!-- FİŞ / KAMERA YÜKLEME ALANI -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-camera"></i> FİŞ VEYA FATURA GÖRSELİ</label>
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handlePhoto(this)">
+          
+          <div class="photo-upload-box" id="uploadBox" onclick="document.getElementById('cameraInput').click()">
+            <i class="fa-solid fa-camera" style="font-size:24px; color:var(--text-main);"></i>
+            <span>Kamerayı Aç / Galeriden Fiş Seç</span>
+          </div>
+
+          <div class="photo-preview-container" id="photoPreview">
+            <img id="previewImage" src="" alt="Fiş Önizleme">
+            <button class="remove-photo-btn" onclick="removePhoto()" title="Fotoğrafı Kaldır">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- AÇIKLAMA -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-pen"></i> HARCAMA AÇIKLAMASI</label>
+          <input type="text" id="descInput" class="form-input" placeholder="Örn: Akşam yemeği, Pazar alışverişi">
+        </div>
+
+        <!-- KATEGORİ SEÇİMİ -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-shapes"></i> KATEGORİ</label>
+          <div class="grid-options">
+            <div class="opt-btn active" onclick="selectCategory(this, 'fa-utensils', 'Yemek')">
+              <i class="fa-solid fa-utensils"></i> Yemek
+            </div>
+            <div class="opt-btn" onclick="selectCategory(this, 'fa-bolt', 'Fatura')">
+              <i class="fa-solid fa-bolt"></i> Fatura
+            </div>
+            <div class="opt-btn" onclick="selectCategory(this, 'fa-house', 'Ev & Market')">
+              <i class="fa-solid fa-house"></i> Market
+            </div>
+            <div class="opt-btn" onclick="selectCategory(this, 'fa-mug-hot', 'Kafe & Özel')">
+              <i class="fa-solid fa-mug-hot"></i> Özel
+            </div>
+            <div class="opt-btn" onclick="selectCategory(this, 'fa-car', 'Ulaşım')">
+              <i class="fa-solid fa-car"></i> Ulaşım
+            </div>
+            <div class="opt-btn" onclick="selectCategory(this, 'fa-box-open', 'Diğer')">
+              <i class="fa-solid fa-box-open"></i> Diğer
+            </div>
+          </div>
+        </div>
+
+        <!-- BÖLÜŞTÜRÜLECEK KİŞİLER (EV HALKI) -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-users"></i> BÖLÜŞTÜRÜLECEK EV ARKADAŞLARI</label>
+          <div class="avatars-split-container">
+            <div class="avatar-opt" data-id="1" onclick="togglePerson(this)">
+              <div class="avatar-opt-img-wrap">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Nedim">
+                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
+              </div>
+              <span class="name">Nedim</span>
+            </div>
+
+            <div class="avatar-opt" data-id="2" onclick="togglePerson(this)">
+              <div class="avatar-opt-img-wrap">
+                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80" alt="Ali">
+                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
+              </div>
+              <span class="name">Ali</span>
+            </div>
+
+            <div class="avatar-opt" data-id="3" onclick="togglePerson(this)">
+              <div class="avatar-opt-img-wrap">
+                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80" alt="Mehmet">
+                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
+              </div>
+              <span class="name">Mehmet</span>
+            </div>
+
+            <div class="avatar-opt" data-id="4" onclick="togglePerson(this)">
+              <div class="avatar-opt-img-wrap">
+                <img src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80" alt="Halit">
+                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
+              </div>
+              <span class="name">Halit</span>
+            </div>
+          </div>
+
+          <!-- Canlı Kişi Başı Hesap Kutusu -->
+          <div id="liveResult" class="result-box">
+            Kişi başı: <strong>0.00 ₺</strong> (4 Kişi)
+          </div>
+        </div>
+
+        <button class="btn-main" onclick="saveExpense()">
+          <i class="fa-solid fa-check"></i> Kaydet ve Ekle
+        </button>
+
+      </section>
+
+      <!-- ================= 3. EKRAN: HESABIM / PROFİL ================= -->
+      <section id="screen-profile" class="screen">
+        
+        <!-- Profil Kartı -->
+        <div class="profile-card">
+          <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" class="profile-img" alt="Nedim">
+          <div class="profile-info">
+            <h3>Nedim</h3>
+            <p>nedim@example.com</p>
+            <div class="profile-badge"><i class="fa-solid fa-shield-halved"></i> Ev Yöneticisi</div>
+          </div>
+        </div>
+
+        <!-- Ayar ve Yönetim Seçenekleri -->
+        <div class="settings-list">
+          <div class="setting-item" onclick="openModal('settlementsModal')">
+            <div class="setting-left">
+              <i class="fa-solid fa-scale-balanced"></i>
+              <span>Kim Kime Ne Verecek?</span>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+          </div>
+
+          <div class="setting-item" onclick="openModal('settlementHistoryModal')">
+            <div class="setting-left">
+              <i class="fa-solid fa-handshake"></i>
+              <span>Ödeşmeler Geçmişi</span>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+          </div>
+
+          <div class="setting-item" onclick="openModal('householdModal')">
+            <div class="setting-left">
+              <i class="fa-solid fa-people-roof"></i>
+              <span>Ev Halkı & Davet Kodu</span>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+          </div>
+
+          <div class="setting-item" onclick="openModal('iosGuideModal')">
+            <div class="setting-left">
+              <i class="fa-solid fa-mobile-screen"></i>
+              <span>iPhone PWA Kurulum Rehberi</span>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+          </div>
+
+          <!-- Karanlık Mod Geçişi -->
+          <div class="setting-item" onclick="toggleTheme()">
+            <div class="setting-left">
+              <i class="fa-solid fa-moon"></i>
+              <span>Karanlık Mod</span>
+            </div>
+            <div class="toggle-switch" id="themeSwitch"></div>
+          </div>
+
+          <!-- Demo Veri Sıfırlama -->
+          <div class="setting-item" onclick="resetDemoData()">
+            <div class="setting-left">
+              <i class="fa-solid fa-rotate-left"></i>
+              <span>Örnek Verileri Sıfırla</span>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+          </div>
+
+          <!-- Çıkış Butonu -->
+          <div class="setting-item" onclick="showToast('Oturum kapatıldı.')">
+            <div class="setting-left">
+              <i class="fa-solid fa-arrow-right-from-bracket" style="color:var(--danger);"></i>
+              <span style="color:var(--danger);">Çıkış Yap</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- ALT SEKMELER (BOTTOM NAV) -->
+    <nav class="bottom-nav">
+      <div class="nav-item active" id="nav-home" onclick="goToTab('screen-home', 'Ev Özetin', 'nav-home')">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Özet</span>
+      </div>
+      
+      <div class="fab-btn" onclick="goToTab('screen-add', 'Yeni Harcama', null)" title="Yeni Harcama Ekle">
+        <i class="fa-solid fa-plus"></i>
+      </div>
+
+      <div class="nav-item" id="nav-profile" onclick="goToTab('screen-profile', 'Hesabım', 'nav-profile')">
+        <i class="fa-solid fa-user"></i>
+        <span>Hesap</span>
+      </div>
+    </nav>
+
+    <!-- ================= MODALLAR VE BOTTOM SHEET'LER ================= -->
+
+    <!-- 1. ZAMAN ARALIĞI FİLTRE MODALI -->
+    <div class="bottom-sheet-overlay" id="filterModal" onclick="if(event.target===this) closeModal('filterModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <h3>Harcama Filtresi</h3>
+          <button class="sheet-close-btn" onclick="closeModal('filterModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="filter-option" onclick="applyFilter('Bugün')">Bugün</div>
+        <div class="filter-option" onclick="applyFilter('Son Hafta')">Son Hafta (7 Gün)</div>
+        <div class="filter-option" onclick="applyFilter('Son Ay')">Son Ay (30 Gün)</div>
+        <div class="filter-option" onclick="applyFilter('Son 3 Ay')">Son 3 Ay</div>
+        <div class="filter-option" onclick="applyFilter('Tümü')">Tümü</div>
+        <button class="close-modal-btn" onclick="closeModal('filterModal')">Vazgeç</button>
+      </div>
+    </div>
+
+    <!-- 2. KİM KİME NE VERECEK (SETTLEMENTS) MODALI -->
+    <div class="bottom-sheet-overlay" id="settlementsModal" onclick="if(event.target===this) closeModal('settlementsModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <div>
+            <h3>Kim Kime Ne Verecek?</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Minimum transfer algoritması ile borç sadeleştirme</p>
+          </div>
+          <button class="sheet-close-btn" onclick="closeModal('settlementsModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div id="settlementsListContainer">
+          <!-- Algoritma çıktısı buraya dinamik eklenir -->
+        </div>
+
+        <button class="close-modal-btn" onclick="closeModal('settlementsModal')">Kapat</button>
+      </div>
+    </div>
+
+    <!-- 3. ÖDEŞMELER GEÇMİŞİ MODALI -->
+    <div class="bottom-sheet-overlay" id="settlementHistoryModal" onclick="if(event.target===this) closeModal('settlementHistoryModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <div>
+            <h3>Ödeşmeler Geçmişi</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Kapatılan ve devredilen borç ödemeleri</p>
+          </div>
+          <button class="sheet-close-btn" onclick="closeModal('settlementHistoryModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div id="settlementHistoryContainer"></div>
+        <button class="close-modal-btn" onclick="closeModal('settlementHistoryModal')">Kapat</button>
+      </div>
+    </div>
+
+    <!-- 4. EV HALKI YÖNETİMİ & DAVET KODU MODALI -->
+    <div class="bottom-sheet-overlay" id="householdModal" onclick="if(event.target===this) closeModal('householdModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <div>
+            <h3>Ev Halkı Yönetimi</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Güneş Apt. No:4 ev arkadaşları ve bakiyeleri</p>
+          </div>
+          <button class="sheet-close-btn" onclick="closeModal('householdModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- Davet Kodu Kutusu -->
+        <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:16px; padding:16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted);">EV DAVET KODU</div>
+            <div style="font-size:18px; font-weight:800; letter-spacing:1px; color:var(--text-main); margin-top:2px;">SOFTHOME-4821</div>
+          </div>
+          <button class="ios-install-btn" onclick="copyInviteCode()" style="background:var(--primary); color:var(--bg-color); border:none; padding:8px 14px;">
+            <i class="fa-solid fa-copy"></i> Kopyala
+          </button>
+        </div>
+
+        <div id="householdListContainer"></div>
+        <button class="close-modal-btn" onclick="closeModal('householdModal')">Kapat</button>
+      </div>
+    </div>
+
+    <!-- 5. FİŞ FOTOĞRAFI TAM EKRAN ÖNİZLEME MODALI -->
+    <div class="bottom-sheet-overlay" id="receiptModal" onclick="if(event.target===this) closeModal('receiptModal')">
+      <div class="bottom-sheet-box" style="text-align:center;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <h3 id="receiptModalTitle">Fiş / Fatura Görseli</h3>
+          <button class="sheet-close-btn" onclick="closeModal('receiptModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <img id="receiptModalImage" src="" alt="Fiş Görseli" style="width:100%; max-height:60vh; object-fit:contain; border-radius:16px; border:1px solid var(--border-color); margin-bottom:16px;">
+        <button class="close-modal-btn" onclick="closeModal('receiptModal')">Kapat</button>
+      </div>
+    </div>
+
+    <!-- 6. HARCAMA DETAYI VE SİLME MODALI -->
+    <div class="bottom-sheet-overlay" id="detailModal" onclick="if(event.target===this) closeModal('detailModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <h3>Harcama Detayı</h3>
+          <button class="sheet-close-btn" onclick="closeModal('detailModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="detailModalContent"></div>
+        <button class="close-modal-btn" onclick="closeModal('detailModal')">Vazgeç</button>
+      </div>
+    </div>
+
+    <!-- 7. iPHONE PWA KURULUM REHBERİ (IOS GUIDE) MODALI -->
+    <div class="bottom-sheet-overlay" id="iosGuideModal" onclick="if(event.target===this) closeModal('iosGuideModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <div>
+            <h3>iPhone'a PWA Olarak Kur</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">App Store olmadan doğrudan telefonuna yükle</p>
+          </div>
+          <button class="sheet-close-btn" onclick="closeModal('iosGuideModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px; margin-bottom:20px;">
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+            <div style="width:32px; height:32px; border-radius:50%; background:var(--primary); color:var(--bg-color); display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">1</div>
+            <div>
+              <h4 style="font-size:14px; color:var(--text-main);">Safari Tarayıcısında Aç</h4>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Bu web sayfasını iPhone'unda Apple Safari ile açtığından emin ol.</p>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+            <div style="width:32px; height:32px; border-radius:50%; background:var(--primary); color:var(--bg-color); display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">2</div>
+            <div>
+              <h4 style="font-size:14px; color:var(--text-main);"><i class="fa-solid fa-arrow-up-from-bracket"></i> Paylaş Butonuna Bas</h4>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Safari'nin alt menü çubuğundaki kare içinden yukarı ok simgesine dokun.</p>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+            <div style="width:32px; height:32px; border-radius:50%; background:var(--primary); color:var(--bg-color); display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;">3</div>
+            <div>
+              <h4 style="font-size:14px; color:var(--text-main);"><i class="fa-regular fa-square-plus"></i> 'Ana Ekrana Ekle'yi Seç</h4>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">Menüde aşağı kaydır ve 'Ana Ekrana Ekle' seçeneğine tıkla, ardından 'Ekle'ye bas.</p>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+            <div style="width:32px; height:32px; border-radius:50%; background:var(--success); color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-weight:700; flex-shrink:0;"><i class="fa-solid fa-check"></i></div>
+            <div>
+              <h4 style="font-size:14px; color:var(--text-main);">Tam Ekran Native Deneyim</h4>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">SoftHome artık iPhone ana ekranında bağımsız, bildirimli ve internetsiz de çalışan bir uygulama gibi çalışacaktır!</p>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-main" onclick="closeModal('iosGuideModal')">Anladım, Harika!</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- UYGULAMA JAVASCRIPT KODLARI -->
+  <script src="js/app.js"></script>
+</body>
+</html>
