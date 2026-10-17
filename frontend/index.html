@@ -52,6 +52,9 @@
         <h1 id="pageTitle">Ev Özetin</h1>
       </div>
       <div class="header-actions">
+        <button class="icon-btn" id="apiStatusBtn" onclick="openModal('apiConfigModal')" title="Backend API Durumu">
+          <i class="fa-solid fa-server" id="apiStatusIcon" style="color:var(--warning);"></i>
+        </button>
         <button class="icon-btn" onclick="toggleTheme()" title="Karanlık / Aydınlık Mod">
           <i class="fa-solid fa-moon" id="headerThemeIcon"></i>
         </button>
@@ -197,46 +200,24 @@
           </div>
         </div>
 
+        <!-- ÖDEYEN KİŞİ -->
+        <div class="form-group">
+          <label><i class="fa-solid fa-hand-holding-dollar"></i> ÜCRETİ ÖDEYEN KİŞİ</label>
+          <select id="payerSelect" class="form-input" style="cursor:pointer;" onchange="calculateRealTime()">
+            <!-- Dinamik doldurulur -->
+          </select>
+        </div>
+
         <!-- BÖLÜŞTÜRÜLECEK KİŞİLER (EV HALKI) -->
         <div class="form-group">
           <label><i class="fa-solid fa-users"></i> BÖLÜŞTÜRÜLECEK EV ARKADAŞLARI</label>
-          <div class="avatars-split-container">
-            <div class="avatar-opt" data-id="1" onclick="togglePerson(this)">
-              <div class="avatar-opt-img-wrap">
-                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="Nedim">
-                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
-              </div>
-              <span class="name">Nedim</span>
-            </div>
-
-            <div class="avatar-opt" data-id="2" onclick="togglePerson(this)">
-              <div class="avatar-opt-img-wrap">
-                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80" alt="Ali">
-                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
-              </div>
-              <span class="name">Ali</span>
-            </div>
-
-            <div class="avatar-opt" data-id="3" onclick="togglePerson(this)">
-              <div class="avatar-opt-img-wrap">
-                <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80" alt="Mehmet">
-                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
-              </div>
-              <span class="name">Mehmet</span>
-            </div>
-
-            <div class="avatar-opt" data-id="4" onclick="togglePerson(this)">
-              <div class="avatar-opt-img-wrap">
-                <img src="https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80" alt="Halit">
-                <div class="check-badge"><i class="fa-solid fa-check"></i></div>
-              </div>
-              <span class="name">Halit</span>
-            </div>
+          <div class="avatars-split-container" id="avatarsSplitContainer">
+            <!-- GET /api/users'dan çekilen dinamik kullanıcılar buraya render edilir -->
           </div>
 
           <!-- Canlı Kişi Başı Hesap Kutusu -->
           <div id="liveResult" class="result-box">
-            Kişi başı: <strong>0.00 ₺</strong> (4 Kişi)
+            Kişi başı: <strong>0.00 ₺</strong>
           </div>
         </div>
 
@@ -291,6 +272,18 @@
               <span>iPhone PWA Kurulum Rehberi</span>
             </div>
             <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+          </div>
+
+          <!-- Backend API Durumu & Ayarları -->
+          <div class="setting-item" onclick="openModal('apiConfigModal')">
+            <div class="setting-left">
+              <i class="fa-solid fa-network-wired"></i>
+              <span>Backend API Bağlantısı</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span id="apiStatusPill" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; background:var(--warning-bg); color:var(--warning);">Kontrol Ediliyor</span>
+              <i class="fa-solid fa-chevron-right" style="color:var(--text-muted); font-size:12px;"></i>
+            </div>
           </div>
 
           <!-- Karanlık Mod Geçişi -->
@@ -498,6 +491,43 @@
         </div>
 
         <button class="btn-main" onclick="closeModal('iosGuideModal')">Anladım, Harika!</button>
+      </div>
+    </div>
+
+    <!-- 8. BACKEND API AYARLARI VE BAĞLANTI MODALI -->
+    <div class="bottom-sheet-overlay" id="apiConfigModal" onclick="if(event.target===this) closeModal('apiConfigModal')">
+      <div class="bottom-sheet-box">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title-row">
+          <div>
+            <h3>Backend API Durumu</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">C# REST API (GET /api/users, POST /api/expenses)</p>
+          </div>
+          <button class="sheet-close-btn" onclick="closeModal('apiConfigModal')"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:16px; padding:16px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <span style="font-size:13px; font-weight:600; color:var(--text-muted);">Bağlantı Durumu:</span>
+            <span id="apiModalStatusText" style="font-size:12px; font-weight:700; color:var(--warning); display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-circle" style="font-size:8px;"></i> Kontrol Ediliyor
+            </span>
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-size:11px;">API SUNUCU ADRESİ (URL)</label>
+            <input type="text" id="apiUrlInput" class="form-input" placeholder="http://localhost:5000" style="font-size:14px; padding:12px;">
+          </div>
+
+          <div style="font-size:11px; color:var(--text-muted); line-height:1.5;">
+            <i class="fa-solid fa-info-circle"></i> Backend API çalışırken <code>GET /api/users</code> ve <code>POST /api/expenses</code> çağrılır. Çevrimdışıyken yerel veriler otomatik korunur.
+          </div>
+        </div>
+
+        <button class="btn-main" onclick="testAndSaveApiUrl()" style="margin-top:0;">
+          <i class="fa-solid fa-arrows-rotate"></i> Bağlantıyı Test Et & Verileri Çek
+        </button>
+        <button class="close-modal-btn" onclick="closeModal('apiConfigModal')">Kapat</button>
       </div>
     </div>
 
