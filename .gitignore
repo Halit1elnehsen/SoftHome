@@ -9,6 +9,7 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+*.env*
 
 # Logs
 npm-debug.log*
@@ -42,3 +43,10 @@ Thumbs.db
 .cache/
 .temp/
 .tmp/
+
+# .NET Build outputs
+[Bb]in/
+[Oo]bj/
+
+# Secret Environment Files
+.env

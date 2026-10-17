@@ -5,9 +5,19 @@ using SoftHome.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// .env dosyasını sisteme yükle
+DotNetEnv.Env.Load();
+
 // Add services to the container.
+var connectionString = Environment.GetEnvironmentVariable("SUPABASE_CONNECTION");
+if (string.IsNullOrEmpty(connectionString))
+{
+    DotNetEnv.Env.TraversePath().Load();
+    connectionString = Environment.GetEnvironmentVariable("SUPABASE_CONNECTION");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
