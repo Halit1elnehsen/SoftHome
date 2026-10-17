@@ -1,74 +1,27 @@
 /**
  * SOFTHOME - Progressive Web App (PWA) Core Application Logic
- * Nedim, Ali, Mehmet, Halit - Ortak Ev Gideri ve Borç Sadeleştirme
+ * Backend API Entegrasyonu (GET /api/users, GET /api/expenses, POST /api/expenses)
  */
 
-// --- SABİTLER VE BAŞLANGIÇ VERİLERİ ---
+// --- API VE SUNUCU KONFİGÜRASYONU ---
+let API_BASE_URL = localStorage.getItem("softhome_api_url") || "http://localhost:5000";
+let isApiConnected = false;
+
 const HOUSE_INFO = {
   name: "Güneş Apt. No:4",
   inviteCode: "SOFTHOME-4821",
   currency: "₺"
 };
 
-const DEFAULT_MEMBERS = [
-  { id: 1, name: "Nedim", email: "nedim@example.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80", role: "Ev Yöneticisi" },
-  { id: 2, name: "Ali", email: "ali@example.com", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80", role: "Üye" },
-  { id: 3, name: "Mehmet", email: "mehmet@example.com", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80", role: "Üye" },
-  { id: 4, name: "Halit", email: "halit@example.com", avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80", role: "Üye" }
-];
-
-const DEFAULT_EXPENSES = [
-  {
-    id: "exp_1",
-    title: "Akşam Yemeği Siparişi",
-    amount: 1200.00,
-    payerId: 1, // Nedim ödedi
-    category: "fa-utensils",
-    categoryName: "Yemek",
-    participantIds: [1, 2, 4], // Nedim, Ali, Halit arasında bölündü
-    date: new Date().toISOString(),
-    receiptUrl: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80",
-    note: "Dürüm & İçecekler"
-  },
-  {
-    id: "exp_2",
-    title: "Süpermarket Alışverişi",
-    amount: 680.00,
-    payerId: 2, // Ali ödedi
-    category: "fa-house",
-    categoryName: "Ev & Market",
-    participantIds: [1, 2, 3, 4], // Herkese bölündü
-    date: new Date(Date.now() - 86400000 * 2).toISOString(),
-    receiptUrl: "",
-    note: "Temizlik malzemeleri ve kahvaltılık"
-  },
-  {
-    id: "exp_3",
-    title: "Fiber İnternet Faturası",
-    amount: 440.00,
-    payerId: 1, // Nedim ödedi
-    category: "fa-bolt",
-    categoryName: "Fatura",
-    participantIds: [1, 2, 3, 4],
-    date: new Date(Date.now() - 86400000 * 5).toISOString(),
-    receiptUrl: "",
-    note: "Ekim ayı faturası"
-  }
-];
-
-const DEFAULT_SETTLEMENTS = [
-  {
-    id: "set_1",
-    fromId: 3,
-    toId: 1,
-    amount: 150.00,
-    date: new Date(Date.now() - 86400000 * 7).toISOString(),
-    note: "Eski bakiye kapatma"
-  }
+// Çevrimdışı / İlk yükleme için varsayılan yedek üyeler (Backend'den dinamik çekilene kadar)
+const FALLBACK_MEMBERS = [
+  { id: 1, name: "Halit", email: "halit@softhome.com", avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80", role: "Ev Sahibi" },
+  { id: 2, name: "Nedim", email: "nedim@softhome.com", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80", role: "Ev Yöneticisi" },
+  { id: 3, name: "Muhammed", email: "muhammed@softhome.com", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80", role: "Üye" }
 ];
 
 // --- UYGULAMA DURUMU (STATE) ---
-let currentUserId = 1; // Aktif oturum: Nedim
+let currentUserId = 2; // Aktif oturum: Nedim
 let members = [];
 let expenses = [];
 let settlements = [];
@@ -77,13 +30,369 @@ let selectedCategory = { icon: "fa-utensils", name: "Yemek" };
 let currentPhotoBase64 = "";
 
 // --- BAŞLATMA ---
-document.addEventListener("DOMContentLoaded", () => {
-  initStorage();
+document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
+  initStorage();
   initServiceWorker();
+
+  const apiUrlInput = document.getElementById("apiUrlInput");
+  if (apiUrlInput) apiUrlInput.value = API_BASE_URL;
+
+  // 1. Önce yerel verileri render et (hızlı açılış)
   renderApp();
   calculateRealTime();
+
+  // 2. Ardından Backend API'ye bağlan ve canlı verileri çek
+  await syncWithBackend();
 });
+
+// --- BACKEND API ENTEGRASYONU (fetch()) ---
+
+/**
+ * Backend API ile tam senkronizasyon:
+ * - GET /api/users (Dinamik üye listesi)
+ * - GET /api/expenses (Dinamik harcama listesi)
+ */
+async function syncWithBackend() {
+  updateApiStatusUI("checking", "Kontrol Ediliyor...");
+  
+  try {
+    // 1. ÜYE LİSTESİNİ ÇEK: GET /api/users
+    const usersSuccess = await fetchUsersFromApi();
+
+    // 2. HARCAMALARI ÇEK: GET /api/expenses
+    const expensesSuccess = await fetchExpensesFromApi();
+
+    if (usersSuccess || expensesSuccess) {
+      setApiOnline(true);
+      showToast("Backend API ile senkronize edildi (🟢)");
+    } else {
+      setApiOnline(false);
+    }
+  } catch (error) {
+    console.warn("Backend API senkronizasyon hatası:", error);
+    setApiOnline(false);
+  }
+
+  // Arayüzü güncel verilerle yeniden çiz
+  renderApp();
+  calculateRealTime();
+}
+
+/**
+ * ÜYE LİSTESİNİ GET /api/users'DAN ÇEK (Hardcoded olmasın kuralı)
+ */
+async function fetchUsersFromApi() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users`, {
+      method: "GET",
+      headers: { "Accept": "application/json" }
+    });
+
+    if (!response.ok) {
+      throw new Error(`GET /api/users yanıt vermedi: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (Array.isArray(data) && data.length > 0) {
+      members = data.map((u, index) => {
+        const uId = u.id || u.Id;
+        const uName = u.username || u.Username || `Kullanıcı ${uId}`;
+        const uEmail = u.email || u.Email || `${uName.toLowerCase()}@softhome.com`;
+        
+        return {
+          id: uId,
+          name: uName,
+          email: uEmail,
+          avatar: getAvatarForUser(uName, index),
+          role: uName.toLowerCase() === "halit" ? "Ev Sahibi" : uName.toLowerCase() === "nedim" ? "Ev Yöneticisi" : "Üye"
+        };
+      });
+
+      // Nedim kullanıcısını aktif oturum olarak eşle (eğer listede varsa)
+      const nedimUser = members.find(m => m.name.toLowerCase() === "nedim");
+      if (nedimUser) {
+        currentUserId = nedimUser.id;
+      }
+
+      localStorage.setItem("softhome_members", JSON.stringify(members));
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn("GET /api/users çağrılamadı, yerel kullanıcılar kullanılıyor:", err.message);
+    return false;
+  }
+}
+
+/**
+ * HARCAMA LİSTESİNİ GET /api/expenses'DEN ÇEK
+ */
+async function fetchExpensesFromApi() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+      method: "GET",
+      headers: { "Accept": "application/json" }
+    });
+
+    if (!response.ok) {
+      throw new Error(`GET /api/expenses yanıt vermedi: ${response.status}`);
+    }
+
+    const data = await response.json();
+    if (Array.isArray(data)) {
+      expenses = data.map(e => {
+        const participants = e.participants || e.Participants || [];
+        const participantIds = participants.map(p => p.userId || p.UserId);
+
+        return {
+          id: String(e.id || e.Id),
+          title: e.title || e.Title || "Harcama",
+          amount: parseFloat(e.totalAmount || e.TotalAmount || 0),
+          payerId: e.payerId || e.PayerId,
+          category: detectCategoryIcon(e.title || e.Title),
+          categoryName: detectCategoryName(e.title || e.Title),
+          participantIds: participantIds.length > 0 ? participantIds : members.map(m => m.id),
+          date: e.createdAt || e.CreatedAt || new Date().toISOString(),
+          receiptUrl: "",
+          note: e.title || e.Title
+        };
+      });
+
+      localStorage.setItem("softhome_expenses", JSON.stringify(expenses));
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn("GET /api/expenses çağrılamadı, yerel harcamalar kullanılıyor:", err.message);
+    return false;
+  }
+}
+
+/**
+ * YENİ HARCAMA EKLE: POST /api/expenses
+ */
+async function saveExpense() {
+  const amount = getRawAmount();
+  const descInput = document.getElementById("descInput");
+  const desc = (descInput ? descInput.value.trim() : "") || selectedCategory.name;
+
+  if (amount <= 0) {
+    showToast("Lütfen geçerli bir tutar girin.");
+    return;
+  }
+
+  const activeNodes = document.querySelectorAll(".avatar-opt:not(.excluded)");
+  if (activeNodes.length === 0) {
+    showToast("Lütfen gideri bölüştürmek için en az 1 kişi seçin.");
+    return;
+  }
+
+  const participantIds = Array.from(activeNodes).map(node => parseInt(node.getAttribute("data-id")));
+
+  // Ödeyen kişiyi seçiciden al (varsayılan aktif kullanıcı)
+  const payerSelect = document.getElementById("payerSelect");
+  const payerId = payerSelect ? parseInt(payerSelect.value) : currentUserId;
+
+  // Backend DTO formatı: { expense: { title, totalAmount, payerId }, participantIds: [...] }
+  const payload = {
+    expense: {
+      title: desc,
+      totalAmount: amount,
+      payerId: payerId
+    },
+    participantIds: participantIds
+  };
+
+  let apiSuccess = false;
+
+  // 1. Backend'e POST /api/expenses isteği gönder
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/expenses`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      apiSuccess = true;
+      setApiOnline(true);
+      showToast("Harcama API'ye kaydedildi! (POST /api/expenses)");
+      // Sunucudan güncel listeyi yeniden çek
+      await fetchExpensesFromApi();
+    } else {
+      console.warn("POST /api/expenses başarısız status:", response.status);
+    }
+  } catch (apiErr) {
+    console.warn("POST /api/expenses ağ hatası:", apiErr.message);
+  }
+
+  // 2. Eğer API kapalıysa veya hata verdiyse yerel olarak kaydet (çevrimdışı güvence)
+  if (!apiSuccess) {
+    const localExpense = {
+      id: "exp_" + Date.now(),
+      title: desc,
+      amount: amount,
+      payerId: payerId,
+      category: selectedCategory.icon,
+      categoryName: selectedCategory.name,
+      participantIds: participantIds,
+      date: new Date().toISOString(),
+      receiptUrl: currentPhotoBase64,
+      note: desc
+    };
+
+    expenses.unshift(localExpense);
+    saveState();
+    showToast("Çevrimdışı kaydedildi (API ulaşılamadı)");
+  }
+
+  // Formu sıfırla ve ana ekrana dön
+  resetAddForm();
+  renderApp();
+  goToTab("screen-home", "Ev Özetin", "nav-home");
+}
+
+/**
+ * HARCAMA SİL: DELETE /api/expenses/{id}
+ */
+async function deleteExpense(expenseId) {
+  if (!confirm("Bu harcamayı silmek istediğinize emin misiniz?")) return;
+
+  const numericId = parseInt(expenseId);
+  let apiDeleted = false;
+
+  if (!isNaN(numericId) && isApiConnected) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/expenses/${numericId}`, {
+        method: "DELETE"
+      });
+      if (response.ok) {
+        apiDeleted = true;
+        await fetchExpensesFromApi();
+        showToast("Harcama API'den silindi (DELETE)");
+      }
+    } catch (err) {
+      console.warn("DELETE /api/expenses hatası:", err);
+    }
+  }
+
+  if (!apiDeleted) {
+    expenses = expenses.filter(e => e.id !== expenseId);
+    saveState();
+    showToast("Harcama yerel olarak silindi.");
+  }
+
+  closeModal("detailModal");
+  renderApp();
+}
+
+// --- API DURUM VE URL YÖNETİMİ ---
+function setApiOnline(online) {
+  isApiConnected = online;
+  const statusIcon = document.getElementById("apiStatusIcon");
+  const statusPill = document.getElementById("apiStatusPill");
+  const modalStatus = document.getElementById("apiModalStatusText");
+
+  if (online) {
+    if (statusIcon) {
+      statusIcon.style.color = "var(--success)";
+      statusIcon.className = "fa-solid fa-server";
+    }
+    if (statusPill) {
+      statusPill.style.background = "var(--success-bg)";
+      statusPill.style.color = "var(--success)";
+      statusPill.innerText = "Bağlı (Canlı)";
+    }
+    if (modalStatus) {
+      modalStatus.style.color = "var(--success)";
+      modalStatus.innerHTML = `<i class="fa-solid fa-circle" style="font-size:8px;"></i> Bağlı (${API_BASE_URL})`;
+    }
+  } else {
+    if (statusIcon) {
+      statusIcon.style.color = "var(--warning)";
+      statusIcon.className = "fa-solid fa-server";
+    }
+    if (statusPill) {
+      statusPill.style.background = "var(--warning-bg)";
+      statusPill.style.color = "var(--warning)";
+      statusPill.innerText = "Çevrimdışı (Yerel)";
+    }
+    if (modalStatus) {
+      modalStatus.style.color = "var(--warning)";
+      modalStatus.innerHTML = `<i class="fa-solid fa-circle" style="font-size:8px;"></i> Çevrimdışı (Yerel Depolama)`;
+    }
+  }
+}
+
+function updateApiStatusUI(type, text) {
+  const modalStatus = document.getElementById("apiModalStatusText");
+  if (modalStatus) {
+    modalStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="font-size:10px;"></i> ${text}`;
+  }
+}
+
+async function testAndSaveApiUrl() {
+  const input = document.getElementById("apiUrlInput");
+  if (!input) return;
+
+  let url = input.value.trim();
+  if (!url) url = "http://localhost:5000";
+  if (url.endsWith("/")) url = url.slice(0, -1);
+
+  API_BASE_URL = url;
+  localStorage.setItem("softhome_api_url", API_BASE_URL);
+
+  updateApiStatusUI("checking", "Bağlanıyor...");
+  showToast("API bağlantısı test ediliyor...");
+
+  await syncWithBackend();
+
+  if (isApiConnected) {
+    showToast(`Bağlantı başarılı: ${API_BASE_URL}`);
+    closeModal("apiConfigModal");
+  } else {
+    showToast(`Sunucuya ulaşılamadı: ${API_BASE_URL}`);
+  }
+}
+
+// --- DİNAMİK AVATAR VE KULLANICI YARDIMCILARI ---
+function getAvatarForUser(name, index) {
+  const lower = (name || "").toLowerCase();
+  if (lower.includes("nedim")) {
+    return "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80";
+  } else if (lower.includes("halit")) {
+    return "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80";
+  } else if (lower.includes("muhammed")) {
+    return "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80";
+  } else if (lower.includes("ali")) {
+    return "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80";
+  }
+  return `https://i.pravatar.cc/150?u=${encodeURIComponent(name || String(index))}`;
+}
+
+function detectCategoryIcon(title) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("yemek") || t.includes("dürüm") || t.includes("restoran") || t.includes("burger")) return "fa-utensils";
+  if (t.includes("fatura") || t.includes("internet") || t.includes("elektrik") || t.includes("su") || t.includes("gaz")) return "fa-bolt";
+  if (t.includes("market") || t.includes("alışveriş") || t.includes("migros") || t.includes("ev")) return "fa-house";
+  if (t.includes("kafe") || t.includes("kahve") || t.includes("özel")) return "fa-mug-hot";
+  if (t.includes("taksi") || t.includes("ulaşım") || t.includes("benzin") || t.includes("yol")) return "fa-car";
+  return "fa-box-open";
+}
+
+function detectCategoryName(title) {
+  const t = (title || "").toLowerCase();
+  if (t.includes("yemek") || t.includes("restoran")) return "Yemek";
+  if (t.includes("fatura") || t.includes("internet")) return "Fatura";
+  if (t.includes("market") || t.includes("alışveriş")) return "Market";
+  if (t.includes("kafe") || t.includes("kahve")) return "Kafe & Özel";
+  if (t.includes("ulaşım") || t.includes("benzin")) return "Ulaşım";
+  return "Gider";
+}
 
 // --- LOCALSTORAGE & VERİ YÖNETİMİ ---
 function initStorage() {
@@ -92,15 +401,15 @@ function initStorage() {
     const storedExpenses = localStorage.getItem("softhome_expenses");
     const storedSettlements = localStorage.getItem("softhome_settlements");
 
-    members = storedMembers ? JSON.parse(storedMembers) : [...DEFAULT_MEMBERS];
-    expenses = storedExpenses ? JSON.parse(storedExpenses) : [...DEFAULT_EXPENSES];
-    settlements = storedSettlements ? JSON.parse(storedSettlements) : [...DEFAULT_SETTLEMENTS];
+    members = storedMembers ? JSON.parse(storedMembers) : [...FALLBACK_MEMBERS];
+    expenses = storedExpenses ? JSON.parse(storedExpenses) : [];
+    settlements = storedSettlements ? JSON.parse(storedSettlements) : [];
     saveState();
   } catch (e) {
     console.error("Storage yüklenirken hata:", e);
-    members = [...DEFAULT_MEMBERS];
-    expenses = [...DEFAULT_EXPENSES];
-    settlements = [...DEFAULT_SETTLEMENTS];
+    members = [...FALLBACK_MEMBERS];
+    expenses = [];
+    settlements = [];
   }
 }
 
@@ -112,12 +421,13 @@ function saveState() {
 
 function resetDemoData() {
   if (confirm("Tüm harcamalar ve veriler başlangıç durumuna sıfırlansın mı?")) {
-    members = [...DEFAULT_MEMBERS];
-    expenses = [...DEFAULT_EXPENSES];
-    settlements = [...DEFAULT_SETTLEMENTS];
+    members = [...FALLBACK_MEMBERS];
+    expenses = [];
+    settlements = [];
     saveState();
     renderApp();
-    showToast("Veriler başlangıç durumuna sıfırlandı.");
+    showToast("Veriler sıfırlandı.");
+    syncWithBackend();
   }
 }
 
@@ -167,18 +477,16 @@ function goToTab(screenId, title, navId) {
     if (navElem) navElem.classList.add("active");
   }
 
-  // Sayfa tepesine kaydır
   const content = document.querySelector(".content");
   if (content) content.scrollTop = 0;
 }
 
 // --- HESAPLAMA & BORÇ SADELEŞTİRME ALGORİTMASI ---
-// Backend'deki ExpenseService.cs:CalculateSettlementsAsync ile %100 uyumlu Minimum Cash Flow
 function computeNetBalances() {
   const balances = {};
   members.forEach(m => { balances[m.id] = 0; });
 
-  // 1. Harcamalardan gelen dengeler
+  // 1. Harcamalardan gelen borç/alacak dengeleri
   expenses.forEach(exp => {
     const payerId = exp.payerId;
     const parts = exp.participantIds;
@@ -188,19 +496,15 @@ function computeNetBalances() {
 
     parts.forEach(pId => {
       if (pId !== payerId) {
-        // Payer alacaklı (+)
         balances[payerId] = (balances[payerId] || 0) + split;
-        // Participant borçlu (-)
         balances[pId] = (balances[pId] || 0) - split;
       }
     });
   });
 
-  // 2. Yapılan ödeşmeler (Settlements) dengeleri kapatır
+  // 2. Yapılan ödeşmeler (Settlements)
   settlements.forEach(st => {
-    // st.fromId borcunu ödedi (+ bakiye)
     balances[st.fromId] = (balances[st.fromId] || 0) + st.amount;
-    // st.toId parasını aldı (- alacak)
     balances[st.toId] = (balances[st.toId] || 0) - st.amount;
   });
 
@@ -210,13 +514,13 @@ function computeNetBalances() {
 function calculateMinimumCashFlow() {
   const balances = computeNetBalances();
 
-  // Alacaklılar (Pozitif)
+  // Alacaklılar (Pozitif bakiye)
   const creditors = Object.keys(balances)
     .filter(id => balances[id] > 0.01)
     .map(id => ({ userId: parseInt(id), amount: balances[id] }))
     .sort((a, b) => b.amount - a.amount);
 
-  // Borçlular (Negatif)
+  // Borçlular (Negatif bakiye)
   const debtors = Object.keys(balances)
     .filter(id => balances[id] < -0.01)
     .map(id => ({ userId: parseInt(id), amount: Math.abs(balances[id]) }))
@@ -259,11 +563,52 @@ function calculateMinimumCashFlow() {
 
 // --- ARAYÜZÜ YENİLE (RENDER APP) ---
 function renderApp() {
+  renderMemberAvatars();
+  renderPayerSelect();
   renderWalletCard();
   renderExpenseList();
   renderSettlementsModal();
   renderSettlementHistory();
   renderHouseholdModal();
+}
+
+/**
+ * ÜYE LİSTESİNİ DİNAMİK DOLDUR (Hardcoded olmasın kuralı)
+ */
+function renderMemberAvatars() {
+  const container = document.getElementById("avatarsSplitContainer");
+  if (!container) return;
+
+  if (members.length === 0) {
+    container.innerHTML = `<p style="font-size:12px; color:var(--text-muted); text-align:center; width:100%;">Üye listesi yükleniyor...</p>`;
+    return;
+  }
+
+  container.innerHTML = members.map(m => {
+    return `
+      <div class="avatar-opt" data-id="${m.id}" onclick="togglePerson(this)">
+        <div class="avatar-opt-img-wrap">
+          <img src="${m.avatar}" alt="${escapeHtml(m.name)}">
+          <div class="check-badge"><i class="fa-solid fa-check"></i></div>
+        </div>
+        <span class="name">${escapeHtml(m.name)}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+/**
+ * ÖDEYEN KİŞİ SEÇİCİSİNİ DİNAMİK DOLDUR
+ */
+function renderPayerSelect() {
+  const select = document.getElementById("payerSelect");
+  if (!select) return;
+
+  const currentVal = select.value;
+  select.innerHTML = members.map(m => {
+    const isSelected = currentVal ? parseInt(currentVal) === m.id : m.id === currentUserId;
+    return `<option value="${m.id}" ${isSelected ? "selected" : ""}>${escapeHtml(m.name)} (${m.role})</option>`;
+  }).join("");
 }
 
 function renderWalletCard() {
@@ -277,7 +622,6 @@ function renderWalletCard() {
   const myShareEl = document.getElementById("statMyShare");
   const debtActionCountEl = document.getElementById("debtActionCount");
 
-  // Format bakiye
   const absAmount = Math.abs(myNet).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   if (balanceEl) balanceEl.innerText = absAmount;
 
@@ -294,7 +638,6 @@ function renderWalletCard() {
     }
   }
 
-  // İstatistikler
   const totalExpense = expenses.reduce((sum, e) => sum + e.amount, 0);
   const myPaid = expenses.filter(e => e.payerId === currentUserId).reduce((sum, e) => sum + e.amount, 0);
   
@@ -309,7 +652,6 @@ function renderWalletCard() {
   if (myPaidEl) myPaidEl.innerText = myPaid.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
   if (myShareEl) myShareEl.innerText = myShare.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " ₺";
 
-  // Borç aksiyon rozeti
   if (debtActionCountEl) {
     if (transactions.length > 0) {
       debtActionCountEl.innerText = `${transactions.length} transfer`;
@@ -363,28 +705,25 @@ function renderExpenseList() {
     return;
   }
 
-  // Tarihe göre azalan sırala
   const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   listEl.innerHTML = sorted.map(exp => {
-    const payer = members.find(m => m.id === exp.payerId) || { name: "Bilinmeyen" };
+    const payer = members.find(m => m.id === exp.payerId) || { name: `Kullanıcı ${exp.payerId}` };
     const isPayerMe = exp.payerId === currentUserId;
     const payerText = isPayerMe ? "Sen ödedin" : `${payer.name} ödedi`;
 
-    // Katılımcı metni
     let splitText = "";
     const activeMembers = members.filter(m => exp.participantIds && exp.participantIds.includes(m.id));
-    if (activeMembers.length === members.length) {
+    if (activeMembers.length === members.length && members.length > 0) {
       splitText = `<span class="badge" style="color:var(--success); border-color:var(--success-bg);">Herkese bölündü</span>`;
     } else if (activeMembers.length === 1) {
       splitText = `<span class="badge" style="color:var(--text-main);">Sadece ${activeMembers[0].name} ödeyecek</span>`;
-    } else {
+    } else if (activeMembers.length > 0) {
       const names = activeMembers.map(m => m.name);
       const namesString = names.slice(0, -1).join(", ") + " ve " + names[names.length - 1];
       splitText = `<span class="badge active-split">${namesString} arasında bölündü</span>`;
     }
 
-    // Fiş ikonu
     const photoBadge = exp.receiptUrl ? `
       <i class="fa-solid fa-image" style="color:var(--success); font-size:12px; margin-left:4px; cursor:pointer;" 
          onclick="event.stopPropagation(); openReceiptModal('${exp.receiptUrl}', '${escapeHtml(exp.title)}')"></i>
@@ -409,7 +748,6 @@ function renderExpenseList() {
   }).join("");
 }
 
-// Tarih göreli formatlayıcı
 function formatRelativeDate(dateStr) {
   const date = new Date(dateStr);
   const now = new Date();
@@ -459,10 +797,9 @@ function renderSettlementsModal() {
     return;
   }
 
-  container.innerHTML = transactions.map((t, index) => {
+  container.innerHTML = transactions.map(t => {
     const isMeDebtor = t.fromId === currentUserId;
     const isMeCreditor = t.toId === currentUserId;
-    const isMyTx = isMeDebtor || isMeCreditor;
 
     return `
       <div class="settlement-card">
@@ -488,7 +825,6 @@ function renderSettlementsModal() {
   }).join("");
 }
 
-// Borç Kapatma (Settlement / Ödeşme)
 function settleUp(fromId, toId, amount, fromName, toName) {
   if (confirm(`${fromName} kişisinin ${toName} kişisine olan ${amount.toFixed(2)} ₺ borcu kapatılsın mı?`)) {
     const newSettlement = {
@@ -523,8 +859,8 @@ function renderSettlementHistory() {
   }
 
   container.innerHTML = settlements.map(s => {
-    const from = members.find(m => m.id === s.fromId) || { name: "Bilinmeyen" };
-    const to = members.find(m => m.id === s.toId) || { name: "Bilinmeyen" };
+    const from = members.find(m => m.id === s.fromId) || { name: `Kullanıcı ${s.fromId}` };
+    const to = members.find(m => m.id === s.toId) || { name: `Kullanıcı ${s.toId}` };
     const dateFormatted = new Date(s.date).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
 
     return `
@@ -565,8 +901,8 @@ function renderHouseholdModal() {
         <div style="display:flex; align-items:center; gap:12px;">
           <img src="${m.avatar}" style="width:40px; height:40px; border-radius:12px; object-fit:cover;">
           <div>
-            <div style="font-weight:700; font-size:14px; color:var(--text-main);">${m.name} ${m.id === currentUserId ? '<span style="font-size:10px; color:var(--text-muted);">(Sen)</span>' : ''}</div>
-            <div style="font-size:11px; color:var(--text-muted);">${m.role} • ${m.email}</div>
+            <div style="font-weight:700; font-size:14px; color:var(--text-main);">${escapeHtml(m.name)} ${m.id === currentUserId ? '<span style="font-size:10px; color:var(--text-muted);">(Sen)</span>' : ''}</div>
+            <div style="font-size:11px; color:var(--text-muted);">${m.role} • ${escapeHtml(m.email)}</div>
           </div>
         </div>
         <div style="font-weight:700; font-size:13px; color:var(--${bClass === 'success' ? 'success' : bClass === 'danger' ? 'danger' : 'text-muted'});">
@@ -598,7 +934,6 @@ function togglePerson(element) {
   calculateRealTime();
 }
 
-// Canlı Tutar Formatlama
 function formatCurrency(input) {
   let val = input.value.replace(/[^\d.]/g, "");
   let parts = val.split(".");
@@ -630,7 +965,6 @@ function calculateRealTime() {
   }
 }
 
-// Fiş & Kamera Yükleme
 function handlePhoto(input) {
   if (input.files && input.files[0]) {
     const file = input.files[0];
@@ -660,60 +994,22 @@ function removePhoto() {
   if (uploadBox) uploadBox.style.display = "flex";
 }
 
-// Harcama Kaydetme
-function saveExpense() {
-  const amount = getRawAmount();
+function resetAddForm() {
   const descInput = document.getElementById("descInput");
-  const desc = (descInput ? descInput.value.trim() : "") || selectedCategory.name;
-
-  if (amount <= 0) {
-    showToast("Lütfen geçerli bir tutar girin.");
-    return;
-  }
-
-  const activeNodes = document.querySelectorAll(".avatar-opt:not(.excluded)");
-  if (activeNodes.length === 0) {
-    showToast("Lütfen gideri bölüştürmek için en az 1 kişi seçin.");
-    return;
-  }
-
-  const participantIds = Array.from(activeNodes).map(node => parseInt(node.getAttribute("data-id")));
-
-  const newExpense = {
-    id: "exp_" + Date.now(),
-    title: desc,
-    amount: amount,
-    payerId: currentUserId,
-    category: selectedCategory.icon,
-    categoryName: selectedCategory.name,
-    participantIds: participantIds,
-    date: new Date().toISOString(),
-    receiptUrl: currentPhotoBase64,
-    note: desc
-  };
-
-  expenses.unshift(newExpense);
-  saveState();
-  renderApp();
-
-  // Formu Sıfırla
-  if (descInput) descInput.value = "";
   const calcAmount = document.getElementById("calcAmount");
+  if (descInput) descInput.value = "";
   if (calcAmount) calcAmount.value = "";
   removePhoto();
   document.querySelectorAll(".avatar-opt.excluded").forEach(el => el.classList.remove("excluded"));
   calculateRealTime();
-
-  showToast("Harcama başarıyla eklendi!");
-  goToTab("screen-home", "Ev Özetin", "nav-home");
 }
 
-// Harcama Detayı / Silme
+// --- HARCAMA DETAYI ---
 function showExpenseDetail(expenseId) {
   const exp = expenses.find(e => e.id === expenseId);
   if (!exp) return;
 
-  const payer = members.find(m => m.id === exp.payerId) || { name: "Bilinmeyen" };
+  const payer = members.find(m => m.id === exp.payerId) || { name: `Kullanıcı ${exp.payerId}` };
   const participants = members.filter(m => exp.participantIds && exp.participantIds.includes(m.id)).map(m => m.name).join(", ");
 
   const receiptHTML = exp.receiptUrl ? `
@@ -725,6 +1021,7 @@ function showExpenseDetail(expenseId) {
 
   const container = document.getElementById("detailModalContent");
   if (container) {
+    const splitCount = exp.participantIds ? exp.participantIds.length : 1;
     container.innerHTML = `
       <div style="text-align:center; margin-bottom:16px;">
         <div class="expense-icon" style="margin: 0 auto 10px; width:54px; height:54px; font-size:24px;">
@@ -737,11 +1034,11 @@ function showExpenseDetail(expenseId) {
       </div>
 
       <div style="background:var(--card-bg); border:1px solid var(--border-color); border-radius:16px; padding:16px; margin-bottom:16px; font-size:13px; line-height:1.8;">
-        <div><strong>Ödeyen:</strong> ${payer.name}</div>
-        <div><strong>Kategori:</strong> ${exp.categoryName || "Gider"}</div>
-        <div><strong>Tarih:</strong> ${new Date(exp.date).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}</div>
-        <div><strong>Bölüşenler:</strong> ${participants}</div>
-        <div><strong>Kişi Başı:</strong> ${(exp.amount / exp.participantIds.length).toFixed(2)} ₺</div>
+        <div><strong>Ödeyen:</strong> ${escapeHtml(payer.name)}</div>
+        <div><strong>Kategori:</strong> ${escapeHtml(exp.categoryName || "Gider")}</div>
+        <div><strong>Tarih:</strong> ${new Date(exp.date).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}</div>
+        <div><strong>Bölüşenler:</strong> ${escapeHtml(participants || "Belirtilmemiş")}</div>
+        <div><strong>Kişi Başı:</strong> ${(exp.amount / splitCount).toFixed(2)} ₺</div>
       </div>
 
       ${receiptHTML}
@@ -754,17 +1051,6 @@ function showExpenseDetail(expenseId) {
   }
 }
 
-function deleteExpense(expenseId) {
-  if (confirm("Bu harcamayı silmek istediğinize emin misiniz?")) {
-    expenses = expenses.filter(e => e.id !== expenseId);
-    saveState();
-    closeModal("detailModal");
-    renderApp();
-    showToast("Harcama silindi.");
-  }
-}
-
-// Fiş Önizleme Modalı
 function openReceiptModal(url, title) {
   const modalImg = document.getElementById("receiptModalImage");
   const modalTitle = document.getElementById("receiptModalTitle");
@@ -800,7 +1086,7 @@ function showToast(message) {
   }, 3200);
 }
 
-// --- PWA SERVICE WORKER & iOS REHBERİ ---
+// --- PWA SERVICE WORKER ---
 function initServiceWorker() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
@@ -809,8 +1095,4 @@ function initServiceWorker() {
         .catch(err => console.log("Service Worker error:", err));
     });
   }
-}
-
-function showIosInstallGuide() {
-  openModal("iosGuideModal");
 }
