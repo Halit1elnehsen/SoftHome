@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SoftHome.Api.DTOs;
 using SoftHome.Api.Models;
+using SoftHome.Api.Services;
 
 namespace SoftHome.Api.Controllers;
 
@@ -9,10 +11,12 @@ namespace SoftHome.Api.Controllers;
 public class ExpensesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly IExpenseService _expenseService;
 
-    public ExpensesController(AppDbContext context)
+    public ExpensesController(AppDbContext context, IExpenseService expenseService)
     {
         _context = context;
+        _expenseService = expenseService;
     }
 
     /// <summary>
@@ -31,14 +35,28 @@ public class ExpensesController : ControllerBase
     }
 
     /// <summary>
-    /// Frontend'den gelen yeni harcamayı veritabanına kaydeder ve 201 Created döndürür.
+    /// Harcama ekler ve katılımcı listesine göre eşit bölüştürme yapar.
     /// </summary>
     [HttpPost]
-    public async Task<ActionResult<Expense>> CreateExpense([FromBody] Expense expense)
+    public async Task<ActionResult<Expense>> CreateExpense([FromBody] CreateExpenseRequest request)
     {
-        _context.Expenses.Add(expense);
-        await _context.SaveChangesAsync();
+        if (request == null || request.Expense == null)
+        {
+            return BadRequest("Geçersiz harcama verisi.");
+        }
 
-        return CreatedAtAction(nameof(GetExpenses), new { id = expense.Id }, expense);
+        var createdExpense = await _expenseService.AddExpenseAsync(request.Expense, request.ParticipantIds);
+
+        return CreatedAtAction(nameof(GetExpenses), new { id = createdExpense.Id }, createdExpense);
+    }
+
+    /// <summary>
+    /// Kimin kime ne kadar ödeyeceğini hesaplayan borç sadeleştirme sonucunu döner.
+    /// </summary>
+    [HttpGet("settlements")]
+    public async Task<ActionResult<List<string>>> GetSettlements()
+    {
+        var settlements = await _expenseService.CalculateSettlementsAsync();
+        return Ok(settlements);
     }
 }
