@@ -148,6 +148,43 @@ public class ExpenseService : IExpenseService
         return settlements;
     }
 
+    /// <summary>
+    /// İlgili harcamadaki kullanıcının borcunu ödendi (IsPaid = true) olarak işaretler.
+    /// </summary>
+    public async Task<bool> MarkAsPaidAsync(int expenseId, int userId)
+    {
+        var participant = await _context.ExpenseParticipants
+            .FirstOrDefaultAsync(ep => ep.ExpenseId == expenseId && ep.UserId == userId);
+
+        if (participant == null)
+        {
+            return false;
+        }
+
+        participant.IsPaid = true;
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    /// <summary>
+    /// İlgili harcamayı ve ilişkili katılımcı kayıtlarını siler.
+    /// </summary>
+    public async Task<bool> DeleteExpenseAsync(int expenseId)
+    {
+        var expense = await _context.Expenses.FindAsync(expenseId);
+
+        if (expense == null)
+        {
+            return false;
+        }
+
+        _context.Expenses.Remove(expense);
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
     private class SettlementParty
     {
         public int UserId { get; set; }

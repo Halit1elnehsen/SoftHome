@@ -59,4 +59,34 @@ public class ExpensesController : ControllerBase
         var settlements = await _expenseService.CalculateSettlementsAsync();
         return Ok(settlements);
     }
+
+    /// <summary>
+    /// Belirtilen harcamada kullanıcının borcunu ödendi olarak işaretler.
+    /// </summary>
+    [HttpPut("{expenseId}/pay/{userId}")]
+    public async Task<IActionResult> MarkAsPaid(int expenseId, int userId)
+    {
+        var success = await _expenseService.MarkAsPaidAsync(expenseId, userId);
+        if (!success)
+        {
+            return NotFound("İlgili harcama veya katılımcı kaydı bulunamadı.");
+        }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Belirtilen harcamayı ve katılımcılarını veritabanından siler.
+    /// </summary>
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteExpense(int id)
+    {
+        var success = await _expenseService.DeleteExpenseAsync(id);
+        if (!success)
+        {
+            return NotFound("Silinecek harcama bulunamadı.");
+        }
+
+        return NoContent();
+    }
 }
