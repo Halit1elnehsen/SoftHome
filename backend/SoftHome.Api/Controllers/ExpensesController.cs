@@ -69,7 +69,7 @@ public class ExpensesController : ControllerBase
         var success = await _expenseService.MarkAsPaidAsync(expenseId, userId);
         if (!success)
         {
-            return NotFound("İlgili harcama veya katılımcı kaydı bulunamadı.");
+            return NotFound();
         }
 
         return NoContent();

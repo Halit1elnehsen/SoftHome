@@ -170,4 +170,21 @@ public class ExpenseServiceTests
         // Muhammed -> Nedim'e 100 TL
         Assert.Contains(settlements, s => s.Contains("Muhammed kullanıcısı Nedim kullanıcısına") && s.Contains("100"));
     }
+
+    /// <summary>
+    /// Var olmayan harcama veya kullanıcı ID'si girildiğinde MarkAsPaidAsync metodunun false döndüğünü doğrular.
+    /// </summary>
+    [Fact]
+    public async Task MarkAsPaidAsync_WhenRecordDoesNotExist_ReturnsFalse()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var service = new ExpenseService(context);
+
+        // Act
+        var result = await service.MarkAsPaidAsync(expenseId: 999, userId: 999);
+
+        // Assert
+        Assert.False(result);
+    }
 }
