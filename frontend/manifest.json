@@ -1,32 +1,16 @@
 {
-  "name": "SoftHome - Ortak Ev Bütçe Yönetimi",
+  "name": "SoftHome",
   "short_name": "SoftHome",
-  "description": "Ev arkadaşları ve ortak yaşam alanları için gider takibi ve borç bölüşüm PWA uygulaması",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "Ortak Ev Bütçe ve Gider Takibi",
+  "start_url": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#F5F5F7",
-  "theme_color": "#000000",
-  "lang": "tr",
+  "background_color": "#F2F2F7",
+  "theme_color": "#007AFF",
   "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
     {
       "src": "icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml"
     }
-  ],
-  "categories": ["finance", "lifestyle", "utilities"]
+  ]
 }
