@@ -8,12 +8,16 @@ SoftHome, ev arkadaşlarının ortak harcamalarını kaydetmesini, kimin ne kada
 
 ## Ekran görüntüleri
 
+### Ev özeti ve borç paylaşımı
+
 <p align="center">
-  <img src="docs/images/overview.png" width="320" alt="SoftHome ev özeti, bakiye ve son harcamalar">
-  <img src="docs/images/settlements.png" width="320" alt="SoftHome kim kime ne verecek borç paylaşımı ekranı">
+  <a href="docs/images/overview-hd.jpg"><img src="docs/images/overview-hd.jpg" width="330" alt="SoftHome ev özeti: net bakiye, toplam gider, ödenen tutar ve son harcamalar"></a>
+  <a href="docs/images/settlements-hd.jpg"><img src="docs/images/settlements-hd.jpg" width="330" alt="SoftHome borç paylaşımı: kimden kime ne kadar ödeme yapılacağı"></a>
 </p>
 
-Görseller çalışan arayüzden, yalnızca dokümantasyon için hazırlanmış örnek kişiler ve harcamalarla alınmıştır. Gerçek kullanıcı veya finansal veri içermez.
+**Solda:** evin genel bütçesi ve son işlemler. **Sağda:** net bakiyelere göre ödeme önerileri.
+
+Her iki görsel **1080 × 1920** çözünürlükte, çalışan arayüzden yeniden alınmıştır. Tam boy görüntülemek için görsele tıkla. Gösterilen kişiler ve harcamalar dokümantasyon amaçlı örnek verilerdir.
 
 ## Özellikler
 
