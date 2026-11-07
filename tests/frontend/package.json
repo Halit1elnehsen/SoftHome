@@ -1,0 +1,7 @@
+{
+  "name": "softhome-frontend-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test accounts.test.mjs" },
+  "devDependencies": { "jsdom": "31.0.0" }
+}
