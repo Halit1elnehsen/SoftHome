@@ -58,3 +58,8 @@ android/build/
 android/local.properties
 android/.gradle/
 *.apk
+
+# Runtime database, receipts and authentication keys (server-side only)
+backend/SoftHome.Api/data/
+*.db-shm
+*.db-wal

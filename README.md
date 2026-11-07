@@ -2,90 +2,125 @@
 
 **Ortak evin giderleri, herkes için anlaşılır.**
 
-SoftHome, ev arkadaşlarının ortak harcamalarını kaydetmesini, kimin ne kadar ödediğini görmesini ve kalan borçları takip etmesini sağlayan bir ortak ev bütçe projesidir. Ev özetinden harcama detayına ve borç paylaşımına kadar günlük işlemleri tek arayüzde toplar.
+SoftHome; ev arkadaşlarının harcamalarını, fatura fotoğraflarını ve aralarındaki ödemeleri takip ettiği bir ortak ev bütçe uygulamasıdır. Adaçayı ve koyu yeşil tonlarındaki arayüz, gerçek hesaplar ve sunucudaki veritabanı ile çalışır.
 
-[Canlı arayüz demosu](https://halidenehsen.netlify.app/previews/softhome/) · [Portfolyo](https://halidenehsen.netlify.app/)
+## Giriş ekranı
 
-## Ekran görüntüleri
+[![SoftHome kayıtlı hesapla giriş ekranı](docs/images/login-hd.jpg)](docs/images/login-hd.jpg)
 
-### Ev özeti ve borç paylaşımı
-
-<p align="center">
-  <a href="docs/images/overview-hd.jpg"><img src="docs/images/overview-hd.jpg" width="330" alt="SoftHome ev özeti: net bakiye, toplam gider, ödenen tutar ve son harcamalar"></a>
-  <a href="docs/images/settlements-hd.jpg"><img src="docs/images/settlements-hd.jpg" width="330" alt="SoftHome borç paylaşımı: kimden kime ne kadar ödeme yapılacağı"></a>
-</p>
-
-**Solda:** evin genel bütçesi ve son işlemler. **Sağda:** net bakiyelere göre ödeme önerileri.
-
-Her iki görsel **1080 × 1920** çözünürlükte, çalışan arayüzden yeniden alınmıştır. Tam boy görüntülemek için görsele tıkla. Gösterilen kişiler ve harcamalar dokümantasyon amaçlı örnek verilerdir.
+Görseli tam boy açmak için üzerine tıkla. Uygulama örnek kişi veya harcama oluşturmaz; ekrandaki adlar kayıtlı kullanıcıların veritabanındaki adlarından gelir.
 
 ## Özellikler
 
-- **Ev özeti:** Toplam gider, ödediğin tutar, sana düşen pay ve net bakiye.
-- **Harcama kaydı:** Tutar, açıklama, kategori, ödeyen kişi ve paylaşılacak ev üyeleri.
-- **Borç paylaşımı:** Kişiler arasındaki net bakiyelerden ödeme önerileri oluşturma.
-- **Fiş ve fatura:** Harcamaya görsel ekleme ve detay ekranında görüntüleme.
-- **Ev üyeleri:** Paylaşıma katılan kişileri yönetme.
-- **Görünüm:** Açık/koyu tema ve telefona uygun arayüz.
+- **Gerçek hesaplar:** Kayıt, tek kullanımlık e-posta doğrulaması, şifre ile giriş ve çıkış.
+- **Ev özeti:** Aylık gider, kişisel bakiye, kategori dağılımı ve aylık bütçe.
+- **Harcama kaydı:** Tutar, kategori, tarih, ödeyen kişi ve paylaşıma katılan üyeler.
+- **Fatura fotoğrafı:** Harcamaya JPEG, PNG veya WebP görsel ekleme; küçük önizleme, kaydetmeden kaldırma ve ayrıntıdan tam boy açma. Dosya sınırı 5 MB.
+- **Borç paylaşımı:** Kuruş kaybetmeden eşit bölüşüm, net bakiyeler ve ödeme kaydı. Bu işlem para transferi yapmaz.
+- **Gerçek ev arkadaşları:** Ev yöneticisinin oluşturduğu katılım koduyla, kendi hesabı bulunan kullanıcıların aynı eve katılması.
+- **Görünüm:** Telefon ve masaüstü yerleşimi, açık/koyu tema, arama ve kategori filtreleri.
 
-Örnek akış: bir market harcaması ekle, ödeyen kişiyi seç, paylaşıma katılan ev arkadaşlarını belirle ve **Kim Kime Ne Verecek?** ekranından net bakiyeleri incele.
+## Hesap ve veri akışı
 
-## Projenin katmanları
+1. Kullanıcı kendi adını, e-postasını ve şifresini yazar.
+2. Doğrulama bağlantısı bu adrese gönderilir; bağlantı 24 saat geçerlidir ve bir kez kullanılabilir.
+3. Doğrulanmış kullanıcı doğru şifreyle giriş yapar. Kayıtlı olmayan adres, yanlış şifre ve doğrulanmamış hesap giriş yapamaz.
+4. Kullanıcının evi, üyeleri, harcamaları ve fatura fotoğrafları sunucudan yüklenir.
+5. Ev arkadaşları ayrı hesap açar; ev yöneticisinin verdiği 7 günlük kodla aynı eve katılır. Kodu yalnızca evinize katılmasını istediğiniz kişilerle paylaşın.
 
-- `frontend/`: HTML, CSS ve JavaScript ile geliştirilen bağımsız tarayıcı demosu; uygulama verilerini **localStorage** içinde saklar.
-- `backend/SoftHome.Api/`: ASP.NET Core **.NET 10**, Entity Framework Core ve PostgreSQL kullanan ayrı API projesi.
-- `backend/SoftHome.Tests/`: API tarafının test projesi.
-- `android/`: Android uygulama yapısı ve paketleme dosyaları.
-- `schema.sql`, `database_schema.md`: Veritabanı şeması ve açıklamaları.
-- `docs/images/`: Bu sayfadaki arayüz görselleri.
+E-posta biçimini kontrol etmek, posta kutusunun gerçekten var olduğunu kanıtlamaz. Bu nedenle e-posta doğrulanmadan oturum açılmaz. Gönderim hizmeti yapılandırılmamışsa kayıt işlemi açık bir hata verir; e-posta gönderilmiş veya hesap doğrulanmış gibi davranılmaz.
 
-Canlı demo, tarayıcı arayüzünü gösterir. Mevcut frontend doğrudan API'ye bağlanmaz; tarayıcıdaki hesap ve harcama verileri cihazlar arasında eşitlenmez. Demo giriş sistemi üretim amaçlı kimlik doğrulama yerine geçmez; gerçek parolanı veya hassas finansal bilgilerini kullanma.
+Şifreler tarayıcıya veya veritabanına düz metin olarak yazılmaz; ASP.NET Core PasswordHasher ile saklanır. Oturum HttpOnly / SameSite çereziyle yönetilir ve değişiklik isteklerinde CSRF doğrulaması uygulanır. Beş hatalı şifre denemesi hesabı 15 dakika kilitler. Her API isteği kullanıcının kendi evine göre sınırlandırılır; fatura görselleri herkese açık bir klasöre yüklenmez.
 
-## Arayüzü yerelde çalıştır
+## Yerelde çalıştır
 
-Python 3 ile basit bir statik sunucu yeterlidir:
+.NET 10 SDK gerekir. Arayüz ve API aynı sunucudan sunulur; yalnızca `frontend/index.html` dosyasını açmak hesap işlemleri için yeterli değildir.
 
 ```bash
 git clone https://github.com/Halit1elnehsen/SoftHome.git
 cd SoftHome
-python -m http.server 8080 --directory frontend
-```
-
-Tarayıcıda [localhost:8080](http://localhost:8080) adresini aç. Demo hesabı ve kayıtları aynı tarayıcıda tutulur; site verilerini temizlemek bunları siler. Arayüzdeki harici font ve ikon kaynakları internet gerektirebilir.
-
-## API'yi yerelde çalıştır
-
-.NET 10 SDK ve erişilebilir bir PostgreSQL veritabanı gerekir. `SUPABASE_CONNECTION` ortam değişkenini kendi PostgreSQL bağlantı dizenle ayarla. Uygulama bu değişkeni okur; tanımlı değilse yapılandırmadaki `DefaultConnection` değerini kullanır.
-
-PowerShell örneği:
-
-```powershell
-$env:SUPABASE_CONNECTION = "Host=localhost;Port=5432;Database=SoftHomeDb;Username=YOUR_USER;Password=YOUR_PASSWORD"
 dotnet restore backend/SoftHome.Api/SoftHome.Api.csproj
 dotnet run --project backend/SoftHome.Api/SoftHome.Api.csproj --launch-profile http
 ```
 
-API belgeleri: [localhost:5000/swagger](http://localhost:5000/swagger). Geliştirme başlangıcında veritabanı oluşturma ve örnek veri ekleme kodu çalışır; geliştirme için ayrı bir veritabanı kullan.
+[localhost:5000](http://localhost:5000) adresini aç. Varsayılan yerel veri tabanı `backend/SoftHome.Api/data/softhome.db` dosyasında oluşturulur. İlk başlangıçta kullanıcı ve harcama listeleri boştur. Çalışma verileri ve oturum anahtarları Git'e dahil edilmez.
+
+## E-posta doğrulamasını bağla
+
+Bir SMTP gönderim hizmetinin bağlantı bilgileri gerekir. Aşağıdaki değerler örnektir; gerçek bilgileri sunucunun ortam değişkenlerine ekle. SMTP parolasını GitHub'a veya frontend dosyalarına yazma.
+
+```powershell
+$env:Email__SmtpHost = "smtp.example.com"
+$env:Email__SmtpPort = "587"
+$env:Email__SmtpUsername = "YOUR_SMTP_USERNAME"
+$env:Email__SmtpPassword = "YOUR_SMTP_PASSWORD"
+$env:Email__From = "verified-sender@example.com"
+$env:PublicUrl = "http://localhost:5000"
+dotnet run --project backend/SoftHome.Api/SoftHome.Api.csproj --launch-profile http
+```
+
+SMTP bağlantısında TLS kullanılır. `Email__From`, sağlayıcının gönderime izin verdiği adres olmalıdır. Canlı sunucuda `PublicUrl`, kullanıcının doğrulama bağlantısından açacağı **gerçek HTTPS adresi** olmalıdır. Hizmet bağlı değilken gerçek e-postalar gönderilmez ve yeni hesaplar etkinleştirilemez.
+
+## Veritabanı
+
+Varsayılan SQLite seçeneği yerel kullanım ve kalıcı diskli tek sunucu için hazırdır. Fatura görselleri harcamayla birlikte veritabanına tek kayıt işleminde yazılır. `data/` dizini ve oturum anahtarları kalıcı, özel bir diskte tutulmalı; veritabanı düzenli yedeklenmelidir.
+
+Mevcut PostgreSQL / Supabase veritabanını kullanmak için:
+
+```powershell
+$env:Database__Provider = "Postgres"
+$env:SUPABASE_CONNECTION = "YOUR_POSTGRES_CONNECTION_STRING"
+dotnet tool restore
+dotnet ef database update --project backend/SoftHome.Api/SoftHome.Api.csproj
+```
+
+`RealAccountsAndReceipts` geçişi yeni hesap, ev, ödeme ve fatura alanlarını ekler; eski kayıtları silmez. Mevcut veritabanına uygulamadan önce yedek alın. Eski sürümdeki örnek kullanıcılar doğrulanmış hesap sayılmaz; eski kayıtların gerçek hesaplara ve doğru eve bağlanması ayrıca yönetilmelidir. Tarayıcının eski localStorage kayıtları otomatik olarak güvenilir hesaplara dönüştürülmez.
+
+## Testler ve derleme
 
 ```bash
 dotnet test backend/SoftHome.Tests/SoftHome.Tests.csproj
+npm ci --prefix tests/frontend
+npm test --prefix tests/frontend
+dotnet publish backend/SoftHome.Api/SoftHome.Api.csproj -c Release -o publish
 ```
 
-Bağlantı parolalarını ve `.env` dosyalarını Git'e ekleme. Üretim kullanımı için güvenli kimlik doğrulama, sunucu üzerinden veri paylaşımı ve ortam yapılandırması ayrıca tamamlanmalıdır.
+Arayüz testleri Node.js 24 ile çalıştırılmıştır.
+
+Testler; kayıtsız hesap, yanlış şifre, e-posta doğrulaması, CSRF, geçici kilit, gerçek kayıtlı adların arayüze yansıması, fotoğrafla birlikte harcama gönderimi, dosya boyutu/biçimi, evler arası erişim ayrımı, katılım kodu ve yinelenen ödeme isteklerini kapsar. Test posta servisi yalnızca test projesindedir; gerçek uygulamada kullanılamaz.
+
+Yayın çıktısı frontend ve API'yi birlikte içerir. Canlı kullanım HTTPS gerektirir. Yalnızca statik dosya barındırmak bu sürümün sunucu tarafını çalıştırmaz; .NET 10 barındırabilen bir sunucu veya konteyner gerekir.
+
+## Android
+
+Android kabuğu aynı HTTPS uygulamasını açar ve fotoğraf seçim penceresini destekler. Derlemede kendi sunucu adresini ver:
+
+```powershell
+cd android
+.\gradlew.bat :app:assembleDebug -PsoftHomeUrl=https://softhome.example.com
+```
+
+Sunucu adresi olmadan hazırlanan paket örnek hesaplarla çalışmaz; sunucu ayarının eksik olduğunu gösterir. Debug derlemesi geliştirme içindir; mağaza yayını için kendi release imzalama ayarların gerekir.
+
+## Proje yapısı
+
+- `frontend/`: Yeni arayüz, hesap ekranları ve API istemcisi.
+- `backend/SoftHome.Api/`: .NET 10, kimlik doğrulama, ev bazında API ve fatura saklama.
+- `backend/SoftHome.Api/Migrations/`: PostgreSQL şema geçişleri.
+- `backend/SoftHome.Tests/`: SQLite üzerinde API bütünleşme testleri ve bölüşüm testleri.
+- `tests/frontend/`: Harcama/fotoğraf gönderimi ve gerçek hesap adı testleri.
+- `android/`: HTTPS sunucuya bağlanan Android WebView kabuğu.
 
 ## Ekip çalışması
 
-Bu proje ekip çalışması için düzenlenmiştir. `main` dalına doğrudan kod göndermek yerine bir özellik dalı açılır ve Pull Request üzerinden inceleme yapılır.
+`main` dalına doğrudan kod göndermek yerine özellik dalı ve Pull Request kullanılır.
 
 ```bash
 git switch main
 git pull --ff-only
 git switch -c feature/gorev-adi
-git add <degisen-dosyalar>
-git commit -m "feat: degisikligin aciklamasi"
-git push -u origin feature/gorev-adi
 ```
 
-Ardından `main` dalına Pull Request açılır.
+Teknik başvurular: [ASP.NET Core çerez kimlik doğrulaması](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/cookie?view=aspnetcore-10.0), [dosya yükleme](https://learn.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-10.0).
 
-Proje hesabı: [Halit1elnehsen](https://github.com/Halit1elnehsen)
+Geliştirici: [Halid Elnehsen](https://github.com/Halit1elnehsen)
