@@ -7,7 +7,7 @@ test('Upgrade preserves existing records, is idempotent and isolates server-only
   const db = new PGlite();
   try {
     const initial = await readFile(new URL('./fixtures/initial.sql', import.meta.url), 'utf8');
-    const upgrade = await readFile(new URL('../../deploy/sql/upgrade-existing-supabase.sql', import.meta.url), 'utf8');
+    const upgrade = await readFile(new URL('../../supabase/bootstrap/upgrade-existing-supabase.sql', import.meta.url), 'utf8');
     await db.exec(initial.replace(/^\uFEFF/,''));
     await db.exec(`
     INSERT INTO "Users" ("Username","Email") VALUES ('Synthetic A','a@example.invalid'),('Synthetic B','b@example.invalid'),('Synthetic C','c@example.invalid');

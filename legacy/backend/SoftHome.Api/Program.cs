@@ -81,7 +81,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
-var frontend = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "../../frontend"));
+var frontend = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, "../../../frontend"));
 if (!Directory.Exists(frontend)) frontend = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 if (Directory.Exists(frontend)) {
     var files = new PhysicalFileProvider(frontend);

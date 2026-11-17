@@ -21,6 +21,6 @@
   <ItemGroup>
     <Content Remove="data/**/*" />
     <None Remove="data/**/*" />
-    <Content Include="../../frontend/**/*" Exclude="../../frontend/.gitkeep" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../../../frontend/**/*" Exclude="../../../frontend/.gitkeep;../../../frontend/node_modules/**/*" Link="wwwroot/%(RecursiveDir)%(Filename)%(Extension)" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

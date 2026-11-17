@@ -34,12 +34,12 @@ Kendi evinde kayıt veya başka üye bulunan kişi doğrudan başka eve taşına
 
 ## Veritabanı ve erişim
 
-Bu depodaki `supabase/migrations/20261117173936_free_private_household.sql`, **mevcut SoftHome EF şemasına uygulanan ek geçiştir**. Boş projede tek başına kurulmaz. Önce `deploy/sql/upgrade-existing-supabase.sql` ile mevcut uygulama şeması güncellenmelidir. Mevcut projedeki Supabase geçmişi:
+Bu depodaki `supabase/migrations/20261117173936_free_private_household.sql`, **mevcut SoftHome EF şemasına uygulanan ek geçiştir**. Boş projede tek başına kurulmaz. Önce `supabase/bootstrap/upgrade-existing-supabase.sql` ile mevcut uygulama şeması güncellenmelidir. Mevcut projedeki Supabase geçmişi:
 
 - `20261117112947_upgrade_softhome_shared_accounts`: EF şeması ve tablo RLS koruması.
 - `20261117173936_free_private_household`: doğrulanmış Auth hesapları, özel RPC işlemleri, özel fatura deposu ve eve göre Realtime yetkisi.
 
-İlk geçişin kaynağı `deploy/sql/upgrade-existing-supabase.sql` dosyasıdır. Bu depo tam bir `supabase db reset` başlangıç zinciri içermez; CLI ile yeni projeye toplu `db push` yapmadan mevcut geçiş geçmişini eşleyin. Canlı projenin geçmişini elle silmeyin.
+İlk geçişin kaynağı `supabase/bootstrap/upgrade-existing-supabase.sql` dosyasıdır. Bu depo tam bir `supabase db reset` başlangıç zinciri içermez; CLI ile yeni projeye toplu `db push` yapmadan mevcut geçiş geçmişini eşleyin. Canlı projenin geçmişini elle silmeyin.
 
 `Users.AuthUserId`, Supabase Auth UUID'sini mevcut sayısal profil kimliğine eşler. Doğrulanmış e-posta sahibi, varsa eski profilini kullanır; başka bir kişinin e-postası kullanıcı bilgileriyle taklit edilemez. Eski .NET şifresi Auth'a aktarılmaz; ilk kullanımda aynı adresle kayıt ve e-posta doğrulaması gerekir.
 
@@ -68,6 +68,6 @@ cd android
 ./gradlew :app:assembleDebug
 ```
 
-Java 17 ve Android SDK 34 gerekir. Varsayılan APK, HTTPS WebViewAssetLoader adresinden paketli arayüzü açar. Açık HTTP ve dosya erişimi kapalıdır. Oturumun başka bir telefona yedekle taşınmaması için Android backup kapalıdır. Test APK'sı debug anahtarıyla imzalanır; aynı imza güncellemelerde korunmalıdır. Mağazaya yayın yapılmaz.
+Java 17 ve Android SDK 34 gerekir. Varsayılan APK, HTTPS WebViewAssetLoader adresinden paketli arayüzü açar. Açık HTTP ve dosya erişimi kapalıdır. Oturumun başka bir telefona yedekle taşınmaması için Android backup kapalıdır. Geliştirme APK'sı debug imzalıdır; dağıtım Release'i özel keystore gerektirir. [İmza ve yedek kılavuzuna](android-release.md) bak. Mağazaya yayın yapılmaz.
 
 Otomatik testler sentetik hesaplarla yanlış kodu, kayıt/şifre kurtarma ekranlarını, ev izolasyonunu, kuruş paylaşımını, tekrar ödeme kaydını, bildirim okunma durumunu ve iptal edilmiş oturumu kapsar. Gerçek Gmail teslimatı ve gerçek telefonda ilk kayıt, kurulmuş APK ile ayrıca denenmelidir; testler bu teslimatın yapıldığını iddia etmez.

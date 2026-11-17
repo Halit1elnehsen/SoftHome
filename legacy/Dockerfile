@@ -1,10 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-COPY backend/SoftHome.Api/SoftHome.Api.csproj backend/SoftHome.Api/
-RUN dotnet restore backend/SoftHome.Api/SoftHome.Api.csproj
-COPY backend/SoftHome.Api/ backend/SoftHome.Api/
+COPY legacy/backend/SoftHome.Api/SoftHome.Api.csproj legacy/backend/SoftHome.Api/
+RUN dotnet restore legacy/backend/SoftHome.Api/SoftHome.Api.csproj
+COPY legacy/backend/SoftHome.Api/ legacy/backend/SoftHome.Api/
 COPY frontend/ frontend/
-RUN dotnet publish backend/SoftHome.Api/SoftHome.Api.csproj -c Release -o /app --no-restore
+RUN dotnet publish legacy/backend/SoftHome.Api/SoftHome.Api.csproj -c Release -o /app --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app

@@ -17,6 +17,8 @@ Ev arkadaşları için özel Android uygulaması. Herkes kendi e-posta hesabıyl
 
 Arayüz APK'nın içindedir. Ortak hizmet Supabase'dir; ayrı ücretli sunucu veya web sitesi yayını gerekmez. Free plan ve Gmail kullanım sınırları geçerlidir. Uygulama kapalıyken sistem push bildirimi bu sürümde yoktur; açıldığında okunmamış haberler yüklenir.
 
+**APK indirme:** [GitHub Releases → Assets → SoftHome.apk](https://github.com/Halit1elnehsen/SoftHome/releases).
+
 **Kurulum, e-posta şablonları, güvenlik ve APK derlemesi:** [Özel Android kılavuzu](docs/private-android.md).
 
 ```bash
@@ -35,11 +37,15 @@ npm ci --prefix tests/frontend
 npm test --prefix tests/frontend
 npm ci --prefix tests/postgres
 npm test --prefix tests/postgres
-dotnet test backend/SoftHome.Api.Tests/SoftHome.Api.Tests.csproj
+dotnet test legacy/backend/SoftHome.Tests/SoftHome.Tests.csproj
 ```
 
 Sentetik verilerle hesap akışları, ortak ev güncellemesi, evler arası izolasyon, ödeme tekrarı ve mevcut kayıtları koruyan geçişler doğrulanır. Gerçek Gmail kod teslimatı ilk cihaz kaydında ayrıca denenmelidir.
 
-## Alternatif .NET sunucusu
+## Dağıtım ve imza
 
-Depodaki .NET 10 API önceki sunucu sürümünü desteklemeye devam eder. Bu yolu kullanmak istersen `frontend/js/backend-config.js` içindeki modu `server` yapıp arayüz paketini yeniden oluştur. API ve arayüz aynı HTTPS sunucusunda sunulur; Android derlemesine `-PsoftHomeUrl=https://sunucu-adresin` verilir. Bu sürümün çerez/CSRF, bağlantıyla doğrulama ve SMTP ayarları için [sunucu kılavuzunu](docs/shared-server.md) kullan. Supabase Auth hesapları ile eski .NET hesap oturumları ayrı sistemlerdir.
+Dağıtım APK'sı özel anahtarla imzalanır; Release derlemesi anahtar ayarları eksikse hata verir. [İmza yedeği, Release yayını ve gerçek telefon testleri](docs/android-release.md). `assembleDebug` geliştirme paketi üretir.
+
+## Eski sunucu arşivi
+
+Etkin sistem Supabase'dir. Önceki .NET API ve sunucu dağıtım dosyaları yedek olarak [legacy/](legacy/README.md) altına taşındı. Yukarıdaki .NET test komutu bu arşiv içindir. Aktif PostgreSQL başlangıç betiği `supabase/bootstrap/` altındadır.

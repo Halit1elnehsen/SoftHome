@@ -1,6 +1,8 @@
 services:
   app:
-    build: ..
+    build:
+      context: ../..
+      dockerfile: legacy/Dockerfile
     restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: Production

@@ -10,6 +10,9 @@ node_modules/
 .env.test.local
 .env.production.local
 *.env*
+!.env.example
+!deploy/settings.example
+!legacy/deploy/settings.example
 
 # Logs
 npm-debug.log*
@@ -60,6 +63,12 @@ android/.gradle/
 *.apk
 
 # Runtime database, receipts and authentication keys (server-side only)
-backend/SoftHome.Api/data/
+legacy/backend/SoftHome.Api/data/
 *.db-shm
 *.db-wal
+
+# Private Android signing material (keep outside this repository)
+*.jks
+*.keystore
+android/keystore.properties
+signing-backup*/

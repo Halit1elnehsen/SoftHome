@@ -21,7 +21,7 @@ test("Verified household RPCs isolate homes, split cents, settle once and revoke
     await db.exec(
       await readFile(
         new URL(
-          "../../deploy/sql/upgrade-existing-supabase.sql",
+          "../../supabase/bootstrap/upgrade-existing-supabase.sql",
           import.meta.url,
         ),
         "utf8",

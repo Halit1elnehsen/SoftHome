@@ -2,6 +2,17 @@ plugins {
     id 'com.android.application'
 }
 
+def signingValues = [
+    path: System.getenv('SOFTHOME_KEYSTORE_PATH'),
+    storePassword: System.getenv('SOFTHOME_KEYSTORE_PASSWORD'),
+    alias: System.getenv('SOFTHOME_KEY_ALIAS'),
+    keyPassword: System.getenv('SOFTHOME_KEY_PASSWORD')
+]
+def hasReleaseSigning = signingValues.values().every { it }
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') } && !hasReleaseSigning) {
+    throw new GradleException('Release signing is required. Set SOFTHOME_KEYSTORE_PATH, SOFTHOME_KEYSTORE_PASSWORD, SOFTHOME_KEY_ALIAS and SOFTHOME_KEY_PASSWORD. See docs/android-release.md.')
+}
+
 android {
     namespace 'com.softhome.app'
     compileSdk 34
@@ -12,8 +23,8 @@ android {
         applicationId "com.softhome.app"
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName "1.2.0"
+        versionCode 4
+        versionName "1.3.0"
         def serviceUrl = (project.findProperty('softHomeUrl') ?: '').toString()
         if (serviceUrl && !serviceUrl.startsWith('https://')) {
             throw new GradleException('softHomeUrl must use HTTPS')
@@ -21,10 +32,21 @@ android {
         buildConfigField 'String', 'SOFT_HOME_URL', '"' + serviceUrl.replace('\\', '\\\\').replace('"', '\\"') + '"'
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            release {
+                storeFile file(signingValues.path)
+                storePassword signingValues.storePassword
+                keyAlias signingValues.alias
+                keyPassword signingValues.keyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             minifyEnabled false
-            signingConfig signingConfigs.debug
+            if (hasReleaseSigning) signingConfig signingConfigs.release
         }
         debug {
             signingConfig signingConfigs.debug

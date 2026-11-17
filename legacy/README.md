@@ -1,3 +1,7 @@
+# Arşiv: eski .NET sunucusu
+
+Etkin uygulama Supabase kullanır. Bu klasör eski sunucuyu yedek olarak korur. Aşağıdaki komutlar depo kökünden çalıştırılır. Üretim PostgreSQL bağlantısı yalnızca ortam değişkeniyle sağlanır; ayarlarda varsayılan parola yoktur.
+
 # Arkadaşlarla aynı SoftHome'u kullanma
 
 Herkesin hesabı ve şifresi kendisine aittir. Ortak olan sunucu ve katıldığınız evdir. Bir kişi harcama eklediğinde aynı evin diğer üyeleri de o harcamayı, fotoğrafını ve güncel bakiyelerini görür.
@@ -9,9 +13,9 @@ Docker Compose bulunan, kalıcı diskli bir Linux sunucusu ve bu sunucunun IP ad
 Proje kökünden:
 
 ```bash
-cp deploy/settings.example deploy/.env
-# deploy/.env dosyasındaki alan adını ve SMTP değerlerini kendi değerlerinle doldur.
-docker compose --env-file deploy/.env -f deploy/compose.yaml up -d --build
+cp legacy/deploy/settings.example legacy/deploy/.env
+# legacy/deploy/.env dosyasındaki alan adını ve SMTP değerlerini kendi değerlerinle doldur.
+docker compose --env-file legacy/deploy/.env -f legacy/deploy/compose.yaml up -d --build
 ```
 
 Caddy HTTPS sertifikasını otomatik alır. Uygulama yalnızca özel Docker ağında dinler. SQLite veritabanı, faturalar ve oturum anahtarları `app-data` adlı kalıcı Docker birimindedir. Konteyner güncellemelerinde bu birimi koru; `down -v` verileri siler. Veritabanını tutarlı biçimde yedeklemek için SQLite backup API kullan veya uygulama kapalıyken veri birimini yedekle.
@@ -48,12 +52,12 @@ Herkes kendi evini oluşturup orada kalırsa veriler paylaşılmaz. Katılım ko
 export Database__Provider=Postgres
 export SUPABASE_CONNECTION='YOUR_POSTGRES_CONNECTION_STRING'
 dotnet tool restore --tool-manifest dotnet-tools.json
-dotnet ef database update --project backend/SoftHome.Api/SoftHome.Api.csproj
+dotnet ef database update --project legacy/backend/SoftHome.Api/SoftHome.Api.csproj
 ```
 
 Önceki harcamalara geriye dönük bildirim oluşturulmaz; yeni işlemler bildirim üretir.
 
-Supabase'te yalnızca `InitialCreate` geçişi uygulanmış bir veritabanını yükseltmek için [hazır SQL betiği](../deploy/sql/upgrade-existing-supabase.sql) de kullanılabilir. Betik yeni alanları, evleri, ödemeleri, bildirimleri ve şifre kurtarmayı ekler; EF geçiş geçmişini günceller. Tek bir işlem içinde çalışır, mevcut kullanıcı/harcama/paylaşım kayıtlarının sayıları değişirse geri alınır. Aynı betik tekrar çalıştırılabilir. Eski kullanıcılar otomatik olarak doğrulanmış hesap veya ev üyesi sayılmaz; kayıtların gerçek hesaplara bağlanması ayrıca yönetilmelidir.
+Supabase'te yalnızca `InitialCreate` geçişi uygulanmış bir veritabanını yükseltmek için [hazır SQL betiği](../supabase/bootstrap/upgrade-existing-supabase.sql) de kullanılabilir. Betik yeni alanları, evleri, ödemeleri, bildirimleri ve şifre kurtarmayı ekler; EF geçiş geçmişini günceller. Tek bir işlem içinde çalışır, mevcut kullanıcı/harcama/paylaşım kayıtlarının sayıları değişirse geri alınır. Aynı betik tekrar çalıştırılabilir. Eski kullanıcılar otomatik olarak doğrulanmış hesap veya ev üyesi sayılmaz; kayıtların gerçek hesaplara bağlanması ayrıca yönetilmelidir.
 
 `SupabaseServerOnlyTables`, uygulamanın kullandığı ve eski sürümden kalan tabloların tamamında RLS'yi etkinleştirir. Kısıtlayıcı `softhome_server_only` politikası, Supabase `anon`/`authenticated` istemcilerinin bu tablolara doğrudan erişimini kapatır. Bu sürüm hesap ve ev yetkilendirmesini ASP.NET API'de yapar; Supabase Auth JWT'si veya publishable key tek başına bu tablolara erişim vermez. Sunucudaki Postgres bağlantısı tablo sahibi ya da `BYPASSRLS` yetkili güvenilir sunucu rolünü kullanmalıdır. Bu bağlantı bilgileri frontend'e veya APK'ya eklenmez. Geçiş geri alınsa bile RLS koruması otomatik kaldırılmaz.
 
