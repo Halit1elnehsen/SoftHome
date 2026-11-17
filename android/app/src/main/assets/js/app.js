@@ -1,4 +1,7 @@
 const paths = {
+  mail: "M3 5h18v14H3zM3 6l9 7 9-7",
+  lock: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3",
+  shield: "M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3M8 12l3 3 5-6",
   home: "M3 10 12 3l9 7M5 9v11h5v-6h4v6h5V9",
   building: "M4 21V7l8-4 8 4v14M8 21v-4h8v4M8 9h1m6 0h1M8 13h1m6 0h1",
   grid: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z",
@@ -476,11 +479,7 @@ document.addEventListener("click", async (event) => {
       "SoftHome nasıl çalışır?",
       `<div class="info-body"><p><strong>1. Harcamayı ekle.</strong> Tutarı, ödeyen kişiyi ve paylaşıma katılacak ev arkadaşlarını seç.</p><p><strong>2. Payını gör.</strong> SoftHome, her kişinin ödediği tutarı ve harcama payını hesaplar.</p><p><strong>3. Hesapları kapat.</strong> Borç paylaşımı ekranından kimin kime ödeme yapacağını gör ve yapılan ödemeleri kaydet.</p><p>Kayıtlar, hesabına bağlı evin veritabanında tutulur. Fatura fotoğrafı ekleyebilir ve ev arkadaşlarını katılım koduyla aynı eve dahil edebilirsin.</p><button class="button button-primary" data-close>Anladım</button></div>`,
     );
-  if (action === "notifications")
-    info(
-      "Evden haberler",
-      `<div class="info-body"><p><strong>Bu ay ${currentExpenses().length} harcama eklendi.</strong><br>Ev özetinden son işlemleri inceleyebilirsin.</p><p><strong>${transfers().length ? transfers().length + " ödeme ile hesaplar kapanabilir." : "Bu ay açık ödeme kalmadı."}</strong><br>Borç paylaşımı ekranında güncel bakiyeleri görebilirsin.</p><button class="button button-primary" data-action="go-balances">Borç paylaşımını aç</button></div>`,
-    );
+  if (action === "notifications") await openNotifications();
   if (action === "go-balances") {
     closeDialog($("#info-dialog"));
     navigate("balances");
@@ -614,6 +613,131 @@ let csrfToken = "",
   receiptObjectUrl = "",
   receiptInvalid = false;
 
+let syncTimer,
+  syncBusy = false,
+  syncGeneration = 0,
+  workspaceRevision = 0;
+let notificationState = { latestId: 0, unreadCount: 0, items: [] };
+let syncIdentity = "",
+  observedActivityId = null;
+
+function stopSync() {
+  clearTimeout(syncTimer);
+  syncGeneration++;
+  syncBusy = false;
+  syncIdentity = "";
+  observedActivityId = null;
+  notificationState = { latestId: 0, unreadCount: 0, items: [] };
+  updateNotificationBadge();
+}
+function updateNotificationBadge() {
+  const button = $('[data-action="notifications"]');
+  button.querySelector("i").hidden = !notificationState.unreadCount;
+  button.setAttribute(
+    "aria-label",
+    notificationState.unreadCount
+      ? `Bildirimleri göster (${notificationState.unreadCount} okunmamış)`
+      : "Bildirimleri göster",
+  );
+}
+function syncStatus(text) {
+  if ($("#sync-status").textContent !== text)
+    $("#sync-status").textContent = text;
+}
+function startSync() {
+  const identity = `${data.meId}:${data.household.id}`;
+  if (syncIdentity === identity) return;
+  stopSync();
+  syncIdentity = identity;
+  void syncWorkspace();
+}
+async function syncWorkspace() {
+  if (!syncIdentity || syncBusy) return;
+  clearTimeout(syncTimer);
+  const generation = syncGeneration;
+  syncBusy = true;
+  try {
+    const state = await api("/api/workspace/notifications");
+    if (generation !== syncGeneration) return;
+    if (state.householdId !== data.household.id) {
+      // Another tab may have joined a different household.
+      await loadWorkspace();
+      return;
+    }
+    const newest = state.items.find(
+      (item) => item.id > (observedActivityId ?? state.latestId),
+    );
+    notificationState = state;
+    observedActivityId = state.latestId;
+    updateNotificationBadge();
+    if (newest) showToast(newest.message);
+    // Keep in-progress forms and confirmation dialogs intact. The next tick
+    // applies the new snapshot as soon as the user finishes editing.
+    const editing =
+      document.querySelector("dialog[open]") ||
+      (document.activeElement?.closest("#page") &&
+        document.activeElement.matches("input, textarea, select"));
+    if (state.latestId !== workspaceRevision && !editing) await loadWorkspace();
+    if (generation === syncGeneration) syncStatus("Ev ile bağlantı güncel");
+  } catch (error) {
+    if (generation !== syncGeneration) return;
+    if (error.status === 401) {
+      showAuth();
+      return;
+    }
+    syncStatus("Bağlantı kesildi; yeniden deneniyor…");
+  } finally {
+    if (generation === syncGeneration) {
+      syncBusy = false;
+      if (syncIdentity) syncTimer = setTimeout(syncWorkspace, 3000);
+    }
+  }
+}
+async function openNotifications() {
+  try {
+    const generation = syncGeneration;
+    const state = await api("/api/workspace/notifications");
+    if (
+      generation !== syncGeneration ||
+      state.householdId !== data.household?.id
+    )
+      return;
+    notificationState = state;
+    updateNotificationBadge();
+    info(
+      "Evden haberler",
+      `<div class="info-body"><p>Ev arkadaşlarının son 50 işlemi. Yeni değişiklikler uygulama açıkken otomatik yüklenir.</p>${
+        state.items.length
+          ? '<ul class="notification-list">' +
+            state.items
+              .map(
+                (item) =>
+                  `<li${item.unread ? ' class="unread"' : ""}><p>${escapeHTML(item.message)}</p><time datetime="${escapeHTML(item.createdAt)}">${escapeHTML(new Date(item.createdAt).toLocaleString("tr-TR"))}</time></li>`,
+              )
+              .join("") +
+            "</ul>"
+          : "<p>Henüz ev arkadaşlarından yeni bir haber yok.</p>"
+      }<button class="button button-primary" data-close>Tamam</button></div>`,
+    );
+    await api("/api/workspace/notifications/read", {
+      method: "POST",
+      body: JSON.stringify({ throughId: state.latestId }),
+    });
+    const refreshed = await api("/api/workspace/notifications");
+    if (generation === syncGeneration) {
+      // Only the displayed batch is acknowledged; newer arrivals remain unread.
+      notificationState = refreshed;
+      updateNotificationBadge();
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+window.addEventListener("online", () => void syncWorkspace());
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) void syncWorkspace();
+});
+
 async function loadCsrf() {
   const response = await fetch("/api/auth/csrf", {
     credentials: "same-origin",
@@ -669,13 +793,17 @@ function alias(id, current) {
   return Number(id) === Number(current) ? "me" : String(id);
 }
 async function loadWorkspace() {
+  const generation = syncGeneration;
   let result;
   try {
     result = await api("/api/workspace");
   } catch (e) {
-    if (e.status === 401) showAuth();
+    if (generation !== syncGeneration) return;
+    if (e.status === 401 && $("#auth-shell").hidden) showAuth();
     throw e;
   }
+  if (generation !== syncGeneration) return;
+  workspaceRevision = result.revision ?? 0;
   const myId = result.me.id;
   data = {
     theme: data.theme,
@@ -706,6 +834,7 @@ async function loadWorkspace() {
   $("#auth-shell").hidden = true;
   $("#app-shell").hidden = false;
   render();
+  startSync();
 }
 function authMessage(message, error = false) {
   const box = $("#auth-message");
@@ -714,29 +843,111 @@ function authMessage(message, error = false) {
   box.hidden = false;
   box.focus();
 }
+let passwordResetToken = "",
+  authBusy = false;
+const authModes = {
+  login: {
+    title: "Evine hoş geldin.",
+    description: "Kaldığınız yerden birlikte devam edin.",
+    submit: "Giriş yap",
+    kicker: "KENDİ HESABIN, ORTAK EVİN",
+  },
+  register: {
+    title: "Birlikte daha kolay.",
+    description:
+      "Hesabını oluştur, e-postanı doğrula ve ev arkadaşlarına katıl.",
+    submit: "Hesap oluştur",
+    kicker: "ORTAK HAYATA BİR ADIM",
+  },
+  forgot: {
+    title: "Şifreni yenileyelim.",
+    description:
+      "Hesabının e-posta adresini yaz. Sana bir yenileme bağlantısı gönderelim.",
+    submit: "Yenileme bağlantısı gönder",
+    kicker: "YENİDEN HOŞ GELDİN",
+  },
+  resend: {
+    title: "Son bir adım kaldı.",
+    description:
+      "Doğrulama bağlantısını yeniden iste. E-postandaki bağlantıdan hesabını etkinleştir.",
+    submit: "Doğrulama bağlantısı gönder",
+    kicker: "E-POSTANI DOĞRULA",
+  },
+  reset: {
+    title: "Yeni bir şifre belirle.",
+    description: "Hesabın için en az 12 karakterlik, sana özel bir şifre seç.",
+    submit: "Şifremi yenile",
+    kicker: "GÜVENLİ BİR BAŞLANGIÇ",
+  },
+};
+function clearAuthErrors() {
+  $$("#auth-form [aria-invalid]").forEach((el) =>
+    el.removeAttribute("aria-invalid"),
+  );
+  $$(".auth-field-error").forEach((el) => {
+    el.textContent = "";
+    el.hidden = true;
+  });
+}
+function authFieldError(input, errorId, message) {
+  input.setAttribute("aria-invalid", "true");
+  $("#" + errorId).textContent = message;
+  $("#" + errorId).hidden = false;
+  authMessage(message, true);
+  input.focus();
+}
+function authButton(label, loading = false) {
+  $("#auth-submit").innerHTML =
+    `<span>${escapeHTML(label)}</span>${loading ? "" : icon("arrow")}`;
+  $("#auth-submit").classList.toggle("is-loading", loading);
+}
 function setAuthMode(mode) {
+  if (!Object.hasOwn(authModes, mode)) return;
   authMode = mode;
-  const register = mode === "register";
+  const config = authModes[mode],
+    register = mode === "register",
+    reset = mode === "reset";
+  const recovery = !["login", "register"].includes(mode);
+  clearAuthErrors();
   $("#register-fields").hidden = !register;
-  $("#password-hint").hidden = !register;
-  $("#auth-title").textContent = register
-    ? "Birlikte yaşamaya bir hesap."
-    : "Evine hoş geldin.";
-  $("#auth-description").textContent = register
-    ? "Kendi bilgilerinle kaydol; e-postanı doğrulayarak başla."
-    : "Kayıtlı hesabınla giriş yap.";
-  $("#auth-submit").textContent = register ? "Hesap oluştur" : "Giriş yap";
-  $("#auth-password").autocomplete = register
-    ? "new-password"
-    : "current-password";
+  $("#auth-name").required = register;
+  $("#password-hint").hidden = !register && !reset;
+  $("#email-group").hidden = reset;
+  $("#auth-email").required = !reset;
+  $("#password-group").hidden = mode === "forgot" || mode === "resend";
+  $("#auth-password").required = !$("#password-group").hidden;
+  $("#confirm-group").hidden = !register && !reset;
+  $("#auth-password-confirm").required = register || reset;
+  $("#forgot-password").hidden = mode !== "login";
+  $(".auth-tabs").hidden = recovery;
+  $("#auth-back").hidden = !recovery;
+  $("#auth-note").hidden = recovery;
+  $("#auth-verification").hidden = mode !== "login";
+  $("#auth-title").textContent = config.title;
+  $("#auth-description").textContent = config.description;
+  $("#auth-kicker").textContent = config.kicker;
+  authButton(config.submit);
+  $("#auth-password").autocomplete =
+    register || reset ? "new-password" : "current-password";
+  $("#auth-password").value = "";
+  $("#auth-password").type = "password";
+  $("#auth-password-confirm").value = "";
+  $("#toggle-password").textContent = "Göster";
+  $("#toggle-password").setAttribute("aria-pressed", "false");
+  $("#toggle-password").setAttribute("aria-label", "Şifreyi göster");
+  $("#caps-lock-hint").hidden = true;
   $("#auth-note").innerHTML = register
     ? 'Zaten hesabın var mı? <button type="button" data-auth-mode="login">Giriş yap</button>'
-    : 'Hesabın yok mu? <button type="button" data-auth-mode="register">Kayıt ol</button>';
-  $("#login-tab").classList.toggle("active", !register);
-  $("#register-tab").classList.toggle("active", register);
+    : 'Henüz hesabın yok mu? <button type="button" data-auth-mode="register">Birlikte başlayalım</button>';
+  for (const name of ["login", "register"]) {
+    const tab = $("#" + name + "-tab");
+    tab.classList.toggle("active", mode === name);
+    tab.setAttribute("aria-pressed", String(mode === name));
+  }
   $("#auth-message").hidden = true;
 }
 function showAuth() {
+  stopSync();
   document.querySelectorAll("dialog[open]").forEach((d) => d.close());
   $("#app-shell").hidden = true;
   $("#auth-shell").hidden = false;
@@ -750,7 +961,14 @@ async function boot() {
   try {
     await loadCsrf();
     const url = new URL(location.href),
-      token = url.searchParams.get("verify");
+      token = url.searchParams.get("verify"),
+      reset = url.searchParams.get("reset");
+    if (reset) {
+      passwordResetToken = reset;
+      history.replaceState({}, "", location.pathname + location.hash);
+      setAuthMode("reset");
+      return;
+    }
     if (token) {
       history.replaceState({}, "", location.pathname + location.hash);
       const response = await api("/api/auth/confirm-email", {
@@ -771,77 +989,128 @@ async function boot() {
 }
 document.addEventListener("click", (event) => {
   const mode = event.target.closest("[data-auth-mode]");
-  if (mode) setAuthMode(mode.dataset.authMode);
+  if (mode && !authBusy) {
+    setAuthMode(mode.dataset.authMode);
+    ($("#email-group").hidden ? $("#auth-password") : $("#auth-email")).focus();
+  }
 });
 $("#toggle-password").addEventListener("click", () => {
   const input = $("#auth-password"),
     show = input.type === "password";
   input.type = show ? "text" : "password";
   $("#toggle-password").textContent = show ? "Gizle" : "Göster";
+  $("#toggle-password").setAttribute("aria-pressed", String(show));
   $("#toggle-password").setAttribute(
     "aria-label",
     show ? "Şifreyi gizle" : "Şifreyi göster",
   );
 });
+$("#auth-password").addEventListener("keyup", (event) => {
+  $("#caps-lock-hint").hidden = !event.getModifierState?.("CapsLock");
+});
 $("#auth-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (authBusy) return;
+  clearAuthErrors();
   const email = $("#auth-email"),
     password = $("#auth-password"),
     name = $("#auth-name");
+  const confirm = $("#auth-password-confirm"),
+    mode = authMode;
+  email.value = email.value.trim();
   if (
-    !email.value.trim() ||
-    !email.checkValidity() ||
-    !/^\S+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())
+    mode !== "reset" &&
+    (!email.value ||
+      !email.checkValidity() ||
+      !/^\S+@[^\s@]+\.[^\s@]+$/.test(email.value))
   ) {
-    authMessage("Geçerli bir e-posta adresi gir.", true);
-    email.focus();
+    authFieldError(email, "email-error", "Geçerli bir e-posta adresi gir.");
     return;
   }
-  if (!password.value) {
-    authMessage("Şifreni gir.", true);
-    password.focus();
+  if (["login", "register", "reset"].includes(mode) && !password.value) {
+    authFieldError(password, "password-error", "Şifreni gir.");
     return;
   }
-  if (
-    authMode === "register" &&
-    (!name.value.trim() || password.value.length < 12)
-  ) {
-    authMessage("Adını ve en az 12 karakterlik şifreni gir.", true);
-    (!name.value.trim() ? name : password).focus();
+  if (mode === "register" && !name.value.trim()) {
+    authFieldError(name, "name-error", "Adını ve soyadını gir.");
     return;
   }
-  const button = $("#auth-submit"),
-    register = authMode === "register";
-  button.disabled = true;
-  button.textContent = register ? "Hesabın hazırlanıyor…" : "Giriş yapılıyor…";
+  if (["register", "reset"].includes(mode)) {
+    if (password.value.length < 12 || password.value.length > 128) {
+      authFieldError(
+        password,
+        "password-error",
+        "Şifren 12–128 karakter arasında olmalı.",
+      );
+      return;
+    }
+    if (confirm.value !== password.value) {
+      authFieldError(
+        confirm,
+        "confirm-error",
+        "Şifreler eşleşmiyor. İki alana da aynı şifreyi yaz.",
+      );
+      return;
+    }
+  }
+  const endpoints = {
+    login: "login",
+    register: "register",
+    forgot: "forgot-password",
+    resend: "resend-verification",
+    reset: "reset-password",
+  };
+  authBusy = true;
+  $$("#auth-shell button").forEach((button) => {
+    button.disabled = true;
+  });
+  $("#auth-form").setAttribute("aria-busy", "true");
+  authButton(
+    mode === "login" ? "Giriş yapılıyor…" : "İşlemin tamamlanıyor…",
+    true,
+  );
   try {
-    const result = await api("/api/auth/" + (register ? "register" : "login"), {
+    const body =
+      mode === "reset"
+        ? { token: passwordResetToken, password: password.value }
+        : {
+            email: email.value,
+            ...(["login", "register"].includes(mode)
+              ? { password: password.value }
+              : {}),
+            ...(mode === "register"
+              ? {
+                  name: name.value.trim(),
+                  householdName: $("#auth-house").value.trim(),
+                }
+              : {}),
+          };
+    const result = await api("/api/auth/" + endpoints[mode], {
       method: "POST",
-      body: JSON.stringify({
-        email: email.value.trim(),
-        password: password.value,
-        ...(register
-          ? {
-              name: name.value.trim(),
-              householdName: $("#auth-house").value.trim(),
-            }
-          : {}),
-      }),
+      body: JSON.stringify(body),
     });
-    password.value = "";
-    if (register) {
+    if (mode === "login") {
+      password.value = "";
+      await loadCsrf();
+      await loadWorkspace();
+    } else if (mode === "register" || mode === "reset") {
+      if (mode === "reset") passwordResetToken = "";
       setAuthMode("login");
       authMessage(result.message);
     } else {
-      await loadCsrf();
-      await loadWorkspace();
+      authMessage(result.message);
     }
-  } catch (e) {
-    authMessage(e.message, true);
+  } catch (error) {
+    authMessage(error.message, true);
+    if (error.status === 403 && mode === "login")
+      $("#auth-verification").hidden = false;
   } finally {
-    button.disabled = false;
-    button.textContent =
-      authMode === "register" ? "Hesap oluştur" : "Giriş yap";
+    authBusy = false;
+    $$("#auth-shell button").forEach((button) => {
+      button.disabled = false;
+    });
+    $("#auth-form").setAttribute("aria-busy", "false");
+    authButton(authModes[authMode].submit);
   }
 });
 function clearReceipt() {
