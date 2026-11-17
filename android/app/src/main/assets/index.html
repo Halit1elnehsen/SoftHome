@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f4f6f2" />
     <meta
       name="description"
-      content="SoftHome ortak ev bütçesi için etkileşimli arayüz önizlemesi."
+      content="Ev arkadaşlarınla harcamaları paylaş, bakiyeleri takip et ve evden gelen güncellemeleri gör."
     />
     <title>SoftHome — Ev hesabı, iç rahatlığı.</title>
     <link rel="manifest" href="manifest.json" />
@@ -24,25 +24,53 @@
   <body>
     <section id="auth-shell" class="auth-shell" aria-label="SoftHome hesabı">
       <div class="auth-story">
-        <a class="brand" href="./"
+        <a class="brand" href="./" aria-label="SoftHome ana sayfa"
           ><span class="brand-mark" data-icon="home"></span
           ><span>soft<span class="brand-light">home</span>.</span></a
         >
         <div class="auth-story-content">
-          <span class="auth-illustration" data-icon="building"></span>
-          <h1>Ev hesabı,<br />iç rahatlığı.</h1>
-          <p>
-            Harcamaları paylaşın, kimin ne ödediğini görün.<br />Aynı evde hayat
-            biraz daha kolay olsun.
+          <p class="auth-eyebrow"><span></span> ORTAK EV, ORTAK DÜZEN</p>
+          <h1>Aynı ev.<br />Daha az hesap.<br /><em>Daha çok hayat.</em></h1>
+          <p class="auth-story-intro">
+            Faturalar, harcamalar, kim kime ne kadar…<br />Hepsi bir yerde.
+            Herkes için açık ve anlaşılır.
           </p>
-          <div class="auth-story-detail">
-            <span data-icon="receipt"></span>Fatura ve fişlerin bir arada.
-          </div>
-          <div class="auth-story-detail">
-            <span data-icon="users"></span>Herkesin payı belli.
+          <div
+            class="auth-home-visual"
+            aria-label="Harcamalar, bakiyeler ve ev arkadaşları aynı yerde"
+          >
+            <div class="auth-orbit orbit-one"></div>
+            <div class="auth-orbit orbit-two"></div>
+            <div class="auth-house-icon">
+              <span data-icon="home"></span><span>bizim ev</span>
+            </div>
+            <div class="auth-feature feature-expense">
+              <span data-icon="receipt"></span>
+              <div>
+                <small>HARCAMALAR</small><strong>Tek yerde, düzenli.</strong>
+              </div>
+              <span class="feature-check" data-icon="check"></span>
+            </div>
+            <div class="auth-feature feature-balance">
+              <span data-icon="split"></span>
+              <div>
+                <small>BAKİYELER</small><strong>Herkesin payı net.</strong>
+              </div>
+            </div>
+            <div class="auth-feature feature-home">
+              <span data-icon="users"></span>
+              <div>
+                <small>EV ARKADAŞLARI</small
+                ><strong>Ayrı hesaplar. Ortak ev.</strong>
+              </div>
+            </div>
           </div>
         </div>
-        <p class="auth-story-footer">Aynı ev, ortak hayat.</p>
+        <div class="auth-story-footer">
+          <span data-icon="heart"></span
+          ><span>Birlikte yaşamanın daha kolay hali.</span
+          ><span class="auth-footer-mark">SoftHome</span>
+        </div>
       </div>
       <div class="auth-content">
         <div class="auth-card">
@@ -52,14 +80,31 @@
               id="login-tab"
               class="active"
               data-auth-mode="login"
+              aria-pressed="true"
             >
-              Giriş yap</button
-            ><button type="button" id="register-tab" data-auth-mode="register">
-              Kayıt ol
+              Giriş yap
+            </button>
+            <button
+              type="button"
+              id="register-tab"
+              data-auth-mode="register"
+              aria-pressed="false"
+            >
+              Hesap oluştur
             </button>
           </div>
+          <button
+            type="button"
+            id="auth-back"
+            class="auth-back"
+            data-auth-mode="login"
+            hidden
+          >
+            <span data-icon="arrow"></span>Girişe dön
+          </button>
+          <p class="auth-kicker" id="auth-kicker">KENDİ HESABIN, ORTAK EVİN</p>
           <h2 id="auth-title">Evine hoş geldin.</h2>
-          <p id="auth-description">Kayıtlı hesabınla giriş yap.</p>
+          <p id="auth-description">Kaldığınız yerden birlikte devam edin.</p>
           <div
             id="auth-message"
             role="status"
@@ -75,61 +120,127 @@
                 name="name"
                 autocomplete="name"
                 maxlength="80"
-              /><label for="auth-house">Evinizin adı</label
+                placeholder="Adın Soyadın"
+                aria-describedby="name-error"
+              />
+              <p id="name-error" class="auth-field-error" hidden></p>
+              <label for="auth-house"
+                >Evinizin adı
+                <span class="optional">(isteğe bağlı)</span></label
               ><input
                 id="auth-house"
                 name="householdName"
-                placeholder="Örn. evinizin adı"
+                placeholder="Örn. Bizim Ev"
                 maxlength="80"
               />
+              <p class="auth-field-note">
+                Arkadaşının evine giriş yaptıktan sonra katılım koduyla
+                katılabilirsin.
+              </p>
             </div>
-            <label for="auth-email">E-posta adresi</label
-            ><input
-              id="auth-email"
-              name="email"
-              type="email"
-              autocomplete="username"
-              placeholder="E-posta adresini gir"
-              maxlength="254"
-              required
-            />
-            <label for="auth-password">Şifre</label>
-            <div class="password-field">
-              <input
-                id="auth-password"
-                name="password"
+            <div id="email-group">
+              <label for="auth-email">E-posta adresi</label>
+              <div class="auth-input-icon">
+                <span data-icon="mail"></span
+                ><input
+                  id="auth-email"
+                  name="email"
+                  type="email"
+                  inputmode="email"
+                  autocomplete="username"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  placeholder="sen@ornek.com"
+                  maxlength="254"
+                  aria-describedby="email-error"
+                  required
+                />
+              </div>
+              <p id="email-error" class="auth-field-error" hidden></p>
+            </div>
+            <div id="password-group">
+              <div class="auth-label-row">
+                <label for="auth-password">Şifre</label
+                ><button
+                  type="button"
+                  id="forgot-password"
+                  data-auth-mode="forgot"
+                >
+                  Şifremi unuttum
+                </button>
+              </div>
+              <div class="password-field auth-input-icon">
+                <span data-icon="lock"></span
+                ><input
+                  id="auth-password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="Şifreni gir"
+                  maxlength="128"
+                  aria-describedby="password-error password-hint caps-lock-hint"
+                  required
+                /><button
+                  type="button"
+                  id="toggle-password"
+                  aria-label="Şifreyi göster"
+                  aria-pressed="false"
+                >
+                  Göster
+                </button>
+              </div>
+              <p id="password-error" class="auth-field-error" hidden></p>
+              <p class="password-hint" id="password-hint" hidden>
+                En az 12 karakter. Sana özel, güçlü bir şifre belirle.
+              </p>
+              <p class="auth-field-note" id="caps-lock-hint" hidden>
+                Caps Lock açık.
+              </p>
+            </div>
+            <div id="confirm-group" hidden>
+              <label for="auth-password-confirm">Şifreni tekrar yaz</label
+              ><input
+                id="auth-password-confirm"
                 type="password"
-                autocomplete="current-password"
+                autocomplete="new-password"
                 maxlength="128"
-                required
-              /><button
-                type="button"
-                id="toggle-password"
-                aria-label="Şifreyi göster"
-              >
-                Göster
-              </button>
+                placeholder="Aynı şifreyi tekrar gir"
+                aria-describedby="confirm-error"
+              />
+              <p id="confirm-error" class="auth-field-error" hidden></p>
             </div>
-            <p class="password-hint" id="password-hint" hidden>
-              En az 12 karakter. Başka hesaplarında kullandığın şifreyi seçme.
-            </p>
             <button
               class="button button-primary auth-submit"
               id="auth-submit"
               type="submit"
             >
-              Giriş yap
+              <span>Giriş yap</span><span data-icon="arrow"></span>
             </button>
           </form>
           <p class="auth-note" id="auth-note">
-            Hesabın yok mu?
-            <button type="button" data-auth-mode="register">Kayıt ol</button>
+            Henüz hesabın yok mu?
+            <button type="button" data-auth-mode="register">
+              Birlikte başlayalım
+            </button>
           </p>
+          <div class="auth-verification" id="auth-verification">
+            <span data-icon="mail"></span>
+            <p>
+              Doğrulama e-postası gelmedi mi?
+              <button type="button" data-auth-mode="resend">
+                Yeniden gönder
+              </button>
+            </p>
+          </div>
         </div>
         <p class="auth-privacy">
-          Şifren güvenli biçimde saklanır.<br />Harcama ve fatura bilgilerini
-          yalnızca evinin üyeleri görür.
+          <span data-icon="shield"></span
+          ><span
+            >Kendi hesabınla güvenle giriş yap.<br />Ev bilgilerin yalnızca ev
+            arkadaşlarınla paylaşılır.</span
+          >
         </p>
+        <p class="auth-content-footer">Ev hesabı, iç rahatlığı.</p>
       </div>
     </section>
 
@@ -215,7 +326,7 @@
               data-action="notifications"
               aria-label="Bildirimleri göster"
             >
-              <span data-icon="bell"></span><i></i></button
+              <span data-icon="bell"></span><i hidden></i></button
             ><button
               class="avatar avatar-me profile-button"
               data-action="house"
@@ -224,6 +335,9 @@
           </div>
         </header>
         <main id="main" tabindex="-1">
+          <p id="sync-status" role="status" class="sync-status">
+            Eve bağlanılıyor…
+          </p>
           <div id="page"></div>
           <footer class="page-footer">
             <span>Ev hesabı, iç rahatlığı.</span
