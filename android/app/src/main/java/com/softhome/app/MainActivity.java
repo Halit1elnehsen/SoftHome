@@ -35,7 +35,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         webSettings.setDatabaseEnabled(true);
-        webSettings.setAllowFileAccess(true);
+        webSettings.setAllowFileAccess(false);
         webSettings.setAllowContentAccess(true);
         webSettings.setMediaPlaybackRequiresUserGesture(false);
         webSettings.setLoadWithOverviewMode(true);
@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity {
         if (!BuildConfig.SOFT_HOME_URL.isEmpty()) {
             webView.loadUrl(BuildConfig.SOFT_HOME_URL);
         } else {
-            webView.loadDataWithBaseURL(null, "<!doctype html><html lang='tr'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font-family:sans-serif;padding:32px;background:#f4f6f2;color:#243c31'><h2>SoftHome sunucusu ayarlanmamış</h2><p>Bu sürüm gerçek hesaplar ve veritabanı kullanır. Android paketi, uygulamanın HTTPS sunucu adresiyle hazırlanmalıdır.</p></body></html>", "text/html", "UTF-8", null);
+            webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
         }
     }
 

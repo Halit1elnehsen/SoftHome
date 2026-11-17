@@ -1,0 +1,1 @@
+{"name":"softhome-browser","private":true,"type":"module","scripts":{"build":"node scripts/build.mjs"},"dependencies":{"@supabase/supabase-js":"2.119.0"},"devDependencies":{"esbuild":"0.28.2"}}

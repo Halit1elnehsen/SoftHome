@@ -376,13 +376,22 @@ function openExpense() {
   updateSplit();
   openDialog($("#expense-dialog"));
 }
-function expenseDetail(id) {
+async function expenseDetail(id) {
   const e = data.expenses.find((e) => String(e.id) === String(id));
   if (!e) return;
+  let receiptUrl = e.receiptUrl;
+  if (window.SoftHomeRemote && receiptUrl) {
+    try {
+      receiptUrl = await window.SoftHomeRemote.receiptUrl(e);
+    } catch (error) {
+      showToast(error.message);
+      return;
+    }
+  }
   const cat = categories.find((c) => c.id === e.category);
   info(
     e.name,
-    `<div class="detail-value">${money(e.cents)}</div><div class="detail-rows"><div><span>Kategori</span><strong>${cat?.name || "Diğer"}</strong></div><div><span>Tarih</span><strong>${dateName(e.date)} ${e.date.slice(0, 4)}</strong></div><div><span>Ödeyen</span><strong>${escapeHTML(getMember(e.payer).name)}</strong></div><div><span>Paylaşanlar</span><strong>${e.split.map((id) => escapeHTML(getMember(id).name)).join(", ")}</strong></div><div><span>Kişi başı pay</span><strong>≈ ${money(Math.round(e.cents / e.split.length))}</strong></div></div><div class="saved-receipt">${e.receiptUrl ? `<h3>Fatura / fiş fotoğrafı</h3><a href="${escapeHTML(e.receiptUrl)}" target="_blank" rel="noopener"><img src="${escapeHTML(e.receiptUrl)}" alt="${escapeHTML(e.name)} harcamasının faturası"><span>Tam boy görüntüle</span></a>` : '<p class="section-note">Bu harcamaya fotoğraf eklenmemiş.</p>'}</div><div class="dialog-actions"><button class="button button-primary" data-close>Tamam</button></div>`,
+    `<div class="detail-value">${money(e.cents)}</div><div class="detail-rows"><div><span>Kategori</span><strong>${cat?.name || "Diğer"}</strong></div><div><span>Tarih</span><strong>${dateName(e.date)} ${e.date.slice(0, 4)}</strong></div><div><span>Ödeyen</span><strong>${escapeHTML(getMember(e.payer).name)}</strong></div><div><span>Paylaşanlar</span><strong>${e.split.map((id) => escapeHTML(getMember(id).name)).join(", ")}</strong></div><div><span>Kişi başı pay</span><strong>≈ ${money(Math.round(e.cents / e.split.length))}</strong></div></div><div class="saved-receipt">${receiptUrl ? `<h3>Fatura / fiş fotoğrafı</h3><a href="${escapeHTML(receiptUrl)}" target="_blank" rel="noopener"><img src="${escapeHTML(receiptUrl)}" alt="${escapeHTML(e.name)} harcamasının faturası"><span>Tam boy görüntüle</span></a>` : '<p class="section-note">Bu harcamaya fotoğraf eklenmemiş.</p>'}</div><div class="dialog-actions"><button class="button button-primary" data-close>Tamam</button></div>`,
   );
 }
 document.addEventListener("click", async (event) => {
@@ -615,6 +624,7 @@ let csrfToken = "",
 
 let syncTimer,
   syncBusy = false,
+  syncQueued = false,
   syncGeneration = 0,
   workspaceRevision = 0;
 let notificationState = { latestId: 0, unreadCount: 0, items: [] };
@@ -623,6 +633,8 @@ let syncIdentity = "",
 
 function stopSync() {
   clearTimeout(syncTimer);
+  window.SoftHomeRemote?.disconnect();
+  syncQueued = false;
   syncGeneration++;
   syncBusy = false;
   syncIdentity = "";
@@ -649,10 +661,18 @@ function startSync() {
   if (syncIdentity === identity) return;
   stopSync();
   syncIdentity = identity;
+  window.SoftHomeRemote?.subscribe(
+    data.household.id,
+    () => void syncWorkspace(),
+  );
   void syncWorkspace();
 }
 async function syncWorkspace() {
-  if (!syncIdentity || syncBusy) return;
+  if (!syncIdentity) return;
+  if (syncBusy) {
+    syncQueued = true;
+    return;
+  }
   clearTimeout(syncTimer);
   const generation = syncGeneration;
   syncBusy = true;
@@ -689,7 +709,11 @@ async function syncWorkspace() {
   } finally {
     if (generation === syncGeneration) {
       syncBusy = false;
-      if (syncIdentity) syncTimer = setTimeout(syncWorkspace, 3000);
+      if (syncIdentity) {
+        const delay = syncQueued ? 0 : window.SoftHomeRemote ? 60000 : 3000;
+        syncQueued = false;
+        syncTimer = setTimeout(syncWorkspace, delay);
+      }
     }
   }
 }
@@ -733,12 +757,25 @@ async function openNotifications() {
     showToast(error.message);
   }
 }
+document.addEventListener("focusout", () => {
+  if (window.SoftHomeRemote && syncIdentity)
+    setTimeout(() => void syncWorkspace(), 0);
+});
+document.querySelectorAll("dialog").forEach((dialog) =>
+  dialog.addEventListener("close", () => {
+    if (window.SoftHomeRemote && syncIdentity) void syncWorkspace();
+  }),
+);
 window.addEventListener("online", () => void syncWorkspace());
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) void syncWorkspace();
 });
 
 async function loadCsrf() {
+  if (window.SoftHomeRemote) {
+    csrfToken = (await window.SoftHomeRemote.request("/api/auth/csrf")).token;
+    return;
+  }
   const response = await fetch("/api/auth/csrf", {
     credentials: "same-origin",
     cache: "no-store",
@@ -749,6 +786,17 @@ async function loadCsrf() {
   csrfToken = json.token;
 }
 async function api(path, options = {}) {
+  if (window.SoftHomeRemote) {
+    try {
+      return await window.SoftHomeRemote.request(path, options);
+    } catch (error) {
+      if (error instanceof TypeError)
+        throw new Error(
+          "Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.",
+        );
+      throw error;
+    }
+  }
   const headers = new Headers(options.headers || {}),
     method = options.method || "GET";
   if (!["GET", "HEAD"].includes(method)) {
@@ -846,6 +894,19 @@ function authMessage(message, error = false) {
 let passwordResetToken = "",
   authBusy = false;
 const authModes = {
+  verify: {
+    title: "E-postanı doğrula.",
+    description:
+      "Gelen kutuna gönderilen 6 haneli kodu yaz. Spam klasörünü de kontrol edebilirsin.",
+    submit: "Kodu doğrula ve hesabımı aç",
+    kicker: "SON BİR ADIM KALDI",
+  },
+  "reset-code": {
+    title: "Yeni şifreni belirle.",
+    description: "E-postandaki yenileme kodunu ve yeni şifreni yaz.",
+    submit: "Şifremi yenile",
+    kicker: "GÜVENLİ BİR BAŞLANGIÇ",
+  },
   login: {
     title: "Evine hoş geldin.",
     description: "Kaldığınız yerden birlikte devam edin.",
@@ -906,15 +967,20 @@ function setAuthMode(mode) {
   authMode = mode;
   const config = authModes[mode],
     register = mode === "register",
-    reset = mode === "reset";
+    reset = mode === "reset" || mode === "reset-code";
   const recovery = !["login", "register"].includes(mode);
   clearAuthErrors();
   $("#register-fields").hidden = !register;
   $("#auth-name").required = register;
   $("#password-hint").hidden = !register && !reset;
-  $("#email-group").hidden = reset;
-  $("#auth-email").required = !reset;
-  $("#password-group").hidden = mode === "forgot" || mode === "resend";
+  $("#email-group").hidden = mode === "reset";
+  $("#auth-email").required = mode !== "reset";
+  $("#auth-email").readOnly = mode === "verify" || mode === "reset-code";
+  $("#otp-group").hidden = mode !== "verify" && mode !== "reset-code";
+  $("#auth-code").required = !$("#otp-group").hidden;
+  $("#auth-code").value = "";
+  $("#otp-group [data-auth-mode]").hidden = mode === "reset-code";
+  $("#password-group").hidden = ["forgot", "resend", "verify"].includes(mode);
   $("#auth-password").required = !$("#password-group").hidden;
   $("#confirm-group").hidden = !register && !reset;
   $("#auth-password-confirm").required = register || reset;
@@ -924,9 +990,18 @@ function setAuthMode(mode) {
   $("#auth-note").hidden = recovery;
   $("#auth-verification").hidden = mode !== "login";
   $("#auth-title").textContent = config.title;
-  $("#auth-description").textContent = config.description;
+  $("#auth-description").textContent =
+    window.SoftHomeRemote && mode === "forgot"
+      ? "E-posta adresini yaz. Sana şifre yenileme kodu gönderelim."
+      : window.SoftHomeRemote && mode === "resend"
+        ? "E-posta adresini yaz. Yeni bir 6 haneli doğrulama kodu iste."
+        : config.description;
   $("#auth-kicker").textContent = config.kicker;
-  authButton(config.submit);
+  authButton(
+    window.SoftHomeRemote && ["forgot", "resend"].includes(mode)
+      ? "Kod gönder"
+      : config.submit,
+  );
   $("#auth-password").autocomplete =
     register || reset ? "new-password" : "current-password";
   $("#auth-password").value = "";
@@ -1027,7 +1102,10 @@ $("#auth-form").addEventListener("submit", async (event) => {
     authFieldError(email, "email-error", "Geçerli bir e-posta adresi gir.");
     return;
   }
-  if (["login", "register", "reset"].includes(mode) && !password.value) {
+  if (
+    ["login", "register", "reset", "reset-code"].includes(mode) &&
+    !password.value
+  ) {
     authFieldError(password, "password-error", "Şifreni gir.");
     return;
   }
@@ -1035,7 +1113,7 @@ $("#auth-form").addEventListener("submit", async (event) => {
     authFieldError(name, "name-error", "Adını ve soyadını gir.");
     return;
   }
-  if (["register", "reset"].includes(mode)) {
+  if (["register", "reset", "reset-code"].includes(mode)) {
     if (password.value.length < 12 || password.value.length > 128) {
       authFieldError(
         password,
@@ -1053,7 +1131,20 @@ $("#auth-form").addEventListener("submit", async (event) => {
       return;
     }
   }
+  if (
+    ["verify", "reset-code"].includes(mode) &&
+    !/^[0-9]{6}$/.test($("#auth-code").value.trim())
+  ) {
+    authFieldError(
+      $("#auth-code"),
+      "code-error",
+      "E-postandaki 6 haneli kodu gir.",
+    );
+    return;
+  }
   const endpoints = {
+    verify: "verify-code",
+    "reset-code": "reset-code",
     login: "login",
     register: "register",
     forgot: "forgot-password",
@@ -1075,7 +1166,10 @@ $("#auth-form").addEventListener("submit", async (event) => {
         ? { token: passwordResetToken, password: password.value }
         : {
             email: email.value,
-            ...(["login", "register"].includes(mode)
+            ...(["verify", "reset-code"].includes(mode)
+              ? { code: $("#auth-code").value.trim() }
+              : {}),
+            ...(["login", "register", "reset-code"].includes(mode)
               ? { password: password.value }
               : {}),
             ...(mode === "register"
@@ -1089,11 +1183,19 @@ $("#auth-form").addEventListener("submit", async (event) => {
       method: "POST",
       body: JSON.stringify(body),
     });
-    if (mode === "login") {
+    if (result?.requiresVerification || result?.requiresRecoveryCode) {
+      setAuthMode(result.requiresVerification ? "verify" : "reset-code");
+      authMessage(result.message);
+      $("#auth-code").focus();
+    } else if (mode === "login" || mode === "verify") {
       password.value = "";
       await loadCsrf();
       await loadWorkspace();
-    } else if (mode === "register" || mode === "reset") {
+      if (mode === "verify")
+        showToast(
+          "Hesabın başarıyla oluşturuldu. Ev arkadaşlarını davet edebilirsin.",
+        );
+    } else if (["register", "reset", "reset-code"].includes(mode)) {
       if (mode === "reset") passwordResetToken = "";
       setAuthMode("login");
       authMessage(result.message);
@@ -1110,7 +1212,11 @@ $("#auth-form").addEventListener("submit", async (event) => {
       button.disabled = false;
     });
     $("#auth-form").setAttribute("aria-busy", "false");
-    authButton(authModes[authMode].submit);
+    authButton(
+      window.SoftHomeRemote && ["forgot", "resend"].includes(authMode)
+        ? "Kod gönder"
+        : authModes[authMode].submit,
+    );
   }
 });
 function clearReceipt() {

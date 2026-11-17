@@ -19,6 +19,9 @@
     />
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="css/accounts.css" />
+    <script src="js/backend-config.js" defer></script>
+    <script src="js/vendor/supabase.js" defer></script>
+    <script src="js/supabase-api.js" defer></script>
     <script src="js/app.js" defer></script>
   </head>
   <body>
@@ -157,6 +160,26 @@
                 />
               </div>
               <p id="email-error" class="auth-field-error" hidden></p>
+            </div>
+            <div id="otp-group" hidden>
+              <label for="auth-code">E-postandaki doğrulama kodu</label>
+              <input
+                id="auth-code"
+                type="text"
+                inputmode="numeric"
+                autocomplete="one-time-code"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                aria-describedby="code-help code-error"
+                placeholder="6 haneli kod"
+              />
+              <p class="auth-field-note" id="code-help">
+                E-postana gelen 6 rakamı yaz. Bu, ev katılım kodundan farklıdır.
+              </p>
+              <p id="code-error" class="auth-field-error" hidden></p>
+              <button type="button" class="text-button" data-auth-mode="resend">
+                Yeni doğrulama kodu iste
+              </button>
             </div>
             <div id="password-group">
               <div class="auth-label-row">
