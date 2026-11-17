@@ -108,7 +108,7 @@ namespace SoftHome.Api.Migrations
                 nullable: true);
 
             // Preserve the dates and records from the original version; assigning verified accounts to a household is a separate administrative operation.
-            migrationBuilder.Sql("UPDATE \"Expenses\" SET \"OccurredAt\" = \"CreatedAt\", \"Category\" = 'other'");
+            migrationBuilder.Sql("UPDATE \"Expenses\" SET \"OccurredAt\" = \"CreatedAt\", \"Category\" = 'other';");
 
             migrationBuilder.CreateTable(
                 name: "Households",

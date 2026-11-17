@@ -41,7 +41,7 @@ Herkes kendi evini oluşturup orada kalırsa veriler paylaşılmaz. Katılım ko
 
 ## Mevcut veritabanını güncelleme
 
-Önce yedek al. SQLite için bildirim ve şifre kurtarma tabloları uygulamanın ilk açılışında eski kayıtlar korunarak eklenir. PostgreSQL için yeni `HouseholdNotifications` ve `AccountRecovery` geçişlerini uygula:
+Önce yedek al. SQLite için bildirim ve şifre kurtarma tabloları uygulamanın ilk açılışında eski kayıtlar korunarak eklenir. PostgreSQL için `RealAccountsAndReceipts`, `HouseholdNotifications`, `AccountRecovery` ve `SupabaseServerOnlyTables` geçişlerini uygula:
 
 ```bash
 # Sunucudaki gerçek PostgreSQL bağlantısını ortam değişkeniyle ayarla.
@@ -52,6 +52,17 @@ dotnet ef database update --project backend/SoftHome.Api/SoftHome.Api.csproj
 ```
 
 Önceki harcamalara geriye dönük bildirim oluşturulmaz; yeni işlemler bildirim üretir.
+
+Supabase'te yalnızca `InitialCreate` geçişi uygulanmış bir veritabanını yükseltmek için [hazır SQL betiği](../deploy/sql/upgrade-existing-supabase.sql) de kullanılabilir. Betik yeni alanları, evleri, ödemeleri, bildirimleri ve şifre kurtarmayı ekler; EF geçiş geçmişini günceller. Tek bir işlem içinde çalışır, mevcut kullanıcı/harcama/paylaşım kayıtlarının sayıları değişirse geri alınır. Aynı betik tekrar çalıştırılabilir. Eski kullanıcılar otomatik olarak doğrulanmış hesap veya ev üyesi sayılmaz; kayıtların gerçek hesaplara bağlanması ayrıca yönetilmelidir.
+
+`SupabaseServerOnlyTables`, uygulamanın kullandığı ve eski sürümden kalan tabloların tamamında RLS'yi etkinleştirir. Kısıtlayıcı `softhome_server_only` politikası, Supabase `anon`/`authenticated` istemcilerinin bu tablolara doğrudan erişimini kapatır. Bu sürüm hesap ve ev yetkilendirmesini ASP.NET API'de yapar; Supabase Auth JWT'si veya publishable key tek başına bu tablolara erişim vermez. Sunucudaki Postgres bağlantısı tablo sahibi ya da `BYPASSRLS` yetkili güvenilir sunucu rolünü kullanmalıdır. Bu bağlantı bilgileri frontend'e veya APK'ya eklenmez. Geçiş geri alınsa bile RLS koruması otomatik kaldırılmaz.
+
+Geçişin örnek eski kayıtları koruması, tekrar uygulanabilirliği ve istemci erişim kısıtları yerel Postgres motoruyla test edilir:
+
+```bash
+npm ci --prefix tests/postgres
+npm test --prefix tests/postgres
+```
 
 ## Android
 

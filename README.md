@@ -88,6 +88,8 @@ dotnet ef database update --project backend/SoftHome.Api/SoftHome.Api.csproj
 dotnet test backend/SoftHome.Tests/SoftHome.Tests.csproj
 npm ci --prefix tests/frontend
 npm test --prefix tests/frontend
+npm ci --prefix tests/postgres
+npm test --prefix tests/postgres
 dotnet publish backend/SoftHome.Api/SoftHome.Api.csproj -c Release -o publish
 ```
 
@@ -115,6 +117,7 @@ Sunucu adresi olmadan hazırlanan paket örnek hesaplarla çalışmaz; sunucu ay
 - `backend/SoftHome.Api/Migrations/`: PostgreSQL şema geçişleri.
 - `backend/SoftHome.Tests/`: SQLite üzerinde API bütünleşme testleri ve bölüşüm testleri.
 - `tests/frontend/`: Harcama/fotoğraf gönderimi ve gerçek hesap adı testleri.
+- `tests/postgres/`: Mevcut kayıtların korunması, şema geçişinin tekrar uygulanması ve Supabase istemci erişim kısıtları için Postgres testi.
 - `android/`: HTTPS sunucuya bağlanan Android WebView kabuğu.
 
 ## Ekip çalışması
