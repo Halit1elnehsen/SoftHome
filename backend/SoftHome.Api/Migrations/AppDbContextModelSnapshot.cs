@@ -135,6 +135,73 @@ namespace SoftHome.Api.Migrations
                     b.ToTable("Households");
                 });
 
+            modelBuilder.Entity("SoftHome.Api.Models.HouseholdActivity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActorId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "Id");
+
+                    b.ToTable("HouseholdActivities");
+                });
+
+            modelBuilder.Entity("SoftHome.Api.Models.NotificationReadState", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("HouseholdId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("LastReadId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "HouseholdId");
+
+                    b.ToTable("NotificationReadStates");
+                });
+
+            modelBuilder.Entity("SoftHome.Api.Models.PasswordRecovery", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("UserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.ToTable("PasswordRecoveries");
+                });
+
             modelBuilder.Entity("SoftHome.Api.Models.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -263,6 +330,24 @@ namespace SoftHome.Api.Migrations
                     b.Navigation("Expense");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SoftHome.Api.Models.HouseholdActivity", b =>
+                {
+                    b.HasOne("SoftHome.Api.Models.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SoftHome.Api.Models.PasswordRecovery", b =>
+                {
+                    b.HasOne("SoftHome.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SoftHome.Api.Models.User", b =>

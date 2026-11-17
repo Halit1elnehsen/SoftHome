@@ -13,11 +13,13 @@ Görseli tam boy açmak için üzerine tıkla. Uygulama örnek kişi veya harcam
 ## Özellikler
 
 - **Gerçek hesaplar:** Kayıt, tek kullanımlık e-posta doğrulaması, şifre ile giriş ve çıkış.
+- **Hesap kurtarma:** Doğrulama e-postasını yeniden gönderme, şifreyi unuttum akışı ve 30 dakika geçerli tek kullanımlık şifre yenileme bağlantısı. Şifre yenilendiğinde eski oturumlar kapanır.
 - **Ev özeti:** Aylık gider, kişisel bakiye, kategori dağılımı ve aylık bütçe.
 - **Harcama kaydı:** Tutar, kategori, tarih, ödeyen kişi ve paylaşıma katılan üyeler.
 - **Fatura fotoğrafı:** Harcamaya JPEG, PNG veya WebP görsel ekleme; küçük önizleme, kaydetmeden kaldırma ve ayrıntıdan tam boy açma. Dosya sınırı 5 MB.
 - **Borç paylaşımı:** Kuruş kaybetmeden eşit bölüşüm, net bakiyeler ve ödeme kaydı. Bu işlem para transferi yapmaz.
 - **Gerçek ev arkadaşları:** Ev yöneticisinin oluşturduğu katılım koduyla, kendi hesabı bulunan kullanıcıların aynı eve katılması.
+- **Ortak güncellemeler ve bildirimler:** Harcama, fatura, bütçe, ödeme ve eve katılma değişiklikleri uygulama açıkken 3 saniyede bir kontrol edilir. Diğer ev arkadaşlarının işlemleri bildirim zilinde ve kalıcı geçmişte görünür; okunma durumu her hesap için ayrı saklanır.
 - **Görünüm:** Telefon ve masaüstü yerleşimi, açık/koyu tema, arama ve kategori filtreleri.
 
 ## Hesap ve veri akışı
@@ -33,6 +35,8 @@ E-posta biçimini kontrol etmek, posta kutusunun gerçekten var olduğunu kanıt
 Şifreler tarayıcıya veya veritabanına düz metin olarak yazılmaz; ASP.NET Core PasswordHasher ile saklanır. Oturum HttpOnly / SameSite çereziyle yönetilir ve değişiklik isteklerinde CSRF doğrulaması uygulanır. Beş hatalı şifre denemesi hesabı 15 dakika kilitler. Her API isteği kullanıcının kendi evine göre sınırlandırılır; fatura görselleri herkese açık bir klasöre yüklenmez.
 
 ## Yerelde çalıştır
+
+Arkadaşlarla farklı telefonlardan kullanmak için **herkes aynı HTTPS sunucu adresini** açmalıdır. Her telefonda ayrı `localhost` veya ayrı veritabanı çalıştırmak ortak veri sağlamaz. Tek sunucu için [kurulum kılavuzunu](docs/shared-server.md) kullan.
 
 .NET 10 SDK gerekir. Arayüz ve API aynı sunucudan sunulur; yalnızca `frontend/index.html` dosyasını açmak hesap işlemleri için yeterli değildir.
 
@@ -62,6 +66,8 @@ dotnet run --project backend/SoftHome.Api/SoftHome.Api.csproj --launch-profile h
 SMTP bağlantısında TLS kullanılır. `Email__From`, sağlayıcının gönderime izin verdiği adres olmalıdır. Canlı sunucuda `PublicUrl`, kullanıcının doğrulama bağlantısından açacağı **gerçek HTTPS adresi** olmalıdır. Hizmet bağlı değilken gerçek e-postalar gönderilmez ve yeni hesaplar etkinleştirilemez.
 
 ## Veritabanı
+
+`AccountRecovery` geçişi şifre yenileme bağlantılarının yalnızca hash değerlerini saklayan tabloyu ekler. PostgreSQL kurulumu güncellenirken diğer geçişlerle birlikte uygulanmalıdır. Bu sürümde oturumlar şifreye bağlı bir doğrulama damgası kullanır; önceki sürümde açılmış oturumlarda bir kez yeniden giriş gerekir. SMTP bağlı değilse kayıt, doğrulama yeniden gönderimi ve şifre yenileme e-postası gönderilemez; uygulama bu durumu açıkça belirtir.
 
 Varsayılan SQLite seçeneği yerel kullanım ve kalıcı diskli tek sunucu için hazırdır. Fatura görselleri harcamayla birlikte veritabanına tek kayıt işleminde yazılır. `data/` dizini ve oturum anahtarları kalıcı, özel bir diskte tutulmalı; veritabanı düzenli yedeklenmelidir.
 

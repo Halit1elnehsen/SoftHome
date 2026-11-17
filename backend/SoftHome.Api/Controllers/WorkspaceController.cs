@@ -15,6 +15,9 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
     private static readonly string[] Categories = ["home", "market", "bill", "food", "internet", "other"];
     private async Task<User?> CurrentUser() => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
         ? await db.Users.SingleOrDefaultAsync(u => u.Id == id && u.EmailConfirmed) : null;
+    private void RecordActivity(User actor, string message) => db.HouseholdActivities.Add(new HouseholdActivity {
+        HouseholdId = actor.HouseholdId!.Value, ActorId = actor.Id, Message = $"{actor.Username} {message}"
+    });
     private object ExpenseDto(Expense e) => new { id = e.Id, name = e.Title, cents = (long)(e.TotalAmount * 100), category = e.Category,
         payer = e.PayerId, date = e.OccurredAt.ToString("yyyy-MM-dd"), split = e.Participants.OrderBy(p => p.Id).Select(p => p.UserId),
         receiptUrl = e.ReceiptData is null ? null : $"/api/workspace/expenses/{e.Id}/receipt" };
@@ -24,6 +27,8 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
     {
         var me = await CurrentUser();
         if (me?.HouseholdId is null) return Unauthorized();
+        // Read before the snapshot: a concurrent change will be picked up on the next sync.
+        var revision = await db.HouseholdActivities.Where(a => a.HouseholdId == me.HouseholdId).MaxAsync(a => (int?)a.Id) ?? 0;
         var house = await db.Households.SingleAsync(h => h.Id == me.HouseholdId);
         var members = await db.Users.Where(u => u.HouseholdId == house.Id && u.EmailConfirmed).OrderBy(u => u.Id)
             .Select(u => new { id = u.Id, name = u.Username }).ToListAsync();
@@ -33,7 +38,42 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
         Response.Headers.CacheControl = "no-store";
         return Ok(new { me = new { id = me.Id, name = me.Username, email = me.Email },
             household = new { id = house.Id, name = house.Name, ownerId = house.OwnerId, budgetCents = (long)(house.MonthlyBudget * 100) },
-            members, expenses = expenses.Select(ExpenseDto), payments });
+            revision, members, expenses = expenses.Select(ExpenseDto), payments });
+    }
+
+    [HttpGet("notifications")]
+    public async Task<IActionResult> Notifications()
+    {
+        var me = await CurrentUser();
+        if (me?.HouseholdId is null) return Unauthorized();
+        var activities = db.HouseholdActivities.AsNoTracking().Where(a => a.HouseholdId == me.HouseholdId);
+        var latestId = await activities.MaxAsync(a => (int?)a.Id) ?? 0;
+        var readId = await db.NotificationReadStates.Where(s => s.UserId == me.Id && s.HouseholdId == me.HouseholdId)
+            .Select(s => (int?)s.LastReadId).SingleOrDefaultAsync() ?? 0;
+        var others = activities.Where(a => a.ActorId != me.Id && a.Id <= latestId);
+        var unreadCount = await others.CountAsync(a => a.Id > readId);
+        var items = await others.OrderByDescending(a => a.Id).Take(50)
+            .Select(a => new { a.Id, a.Message, a.CreatedAt, unread = a.Id > readId }).ToListAsync();
+        return Ok(new { householdId = me.HouseholdId, latestId, unreadCount, items });
+    }
+
+    public record ReadNotificationsInput(int ThroughId);
+    [HttpPost("notifications/read")]
+    public async Task<IActionResult> ReadNotifications(ReadNotificationsInput input)
+    {
+        var me = await CurrentUser();
+        if (me?.HouseholdId is null) return Unauthorized();
+        var latest = await db.HouseholdActivities.Where(a => a.HouseholdId == me.HouseholdId).MaxAsync(a => (int?)a.Id) ?? 0;
+        if (input.ThroughId < 0 || input.ThroughId > latest) return BadRequest();
+        // Provider-independent atomic upsert: two devices must never move the cursor backwards.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO "NotificationReadStates" ("UserId", "HouseholdId", "LastReadId")
+            VALUES ({me.Id}, {me.HouseholdId.Value}, {input.ThroughId})
+            ON CONFLICT ("UserId", "HouseholdId") DO UPDATE SET "LastReadId" =
+            CASE WHEN "NotificationReadStates"."LastReadId" < excluded."LastReadId"
+            THEN excluded."LastReadId" ELSE "NotificationReadStates"."LastReadId" END
+            """);
+        return NoContent();
     }
 
     public record ExpenseInput(string Name, long Cents, string Category, int PayerId, string Date, List<int> ParticipantIds);
@@ -70,6 +110,7 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
         e.Participants = input.ParticipantIds.Select((id, i) => new ExpenseParticipant { UserId = id,
             OwedAmount = (centsEach + (i < remainder ? 1 : 0)) / 100m, IsPaid = false }).ToList();
         db.Expenses.Add(e);
+        RecordActivity(me, $"“{e.Title}” harcamasını ekledi.");
         await db.SaveChangesAsync();
         return StatusCode(201, ExpenseDto(e));
     }
@@ -97,6 +138,7 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
         if (e.CreatedById != me.Id && house!.OwnerId != me.Id) return Forbid();
         try { (e.ReceiptData, e.ReceiptContentType) = await ReceiptValidator.ReadAsync(receipt); }
         catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+        RecordActivity(me, "bir fatura fotoğrafını güncelledi.");
         await db.SaveChangesAsync(); return NoContent();
     }
 
@@ -111,6 +153,7 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
         if (string.IsNullOrWhiteSpace(input.Name) || input.Name.Trim().Length > 80 || input.BudgetCents <= 0 || input.BudgetCents > 100000000)
             return BadRequest(new { message = "Geçerli bir ev adı ve bütçe gir." });
         house.Name = input.Name.Trim(); house.MonthlyBudget = input.BudgetCents / 100m;
+        RecordActivity(me, "ev adını veya aylık bütçeyi güncelledi.");
         await db.SaveChangesAsync(); return NoContent();
     }
 
@@ -141,6 +184,7 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
         if (await db.Expenses.AnyAsync(e => e.HouseholdId == me.HouseholdId) || await db.Users.CountAsync(u => u.HouseholdId == me.HouseholdId) > 1)
             return BadRequest(new { message = "Kayıtları bulunan bir evden doğrudan ayrılamazsın. Ev yöneticisiyle görüş." });
         me.HouseholdId = target.Id;
+        RecordActivity(me, "eve katıldı.");
         await db.SaveChangesAsync(); return NoContent();
     }
 
@@ -174,6 +218,7 @@ public class WorkspaceController(AppDbContext db) : ControllerBase
             return BadRequest(new { message = "Bakiyeler değişmiş. Sayfayı yenileyip güncel ödemeyi seç." });
         db.Payments.Add(new Payment { HouseholdId = house!.Id, FromUserId = input.FromUserId, ToUserId = input.ToUserId,
             Cents = input.Cents, Month = input.Month, RequestId = input.RequestId });
+        RecordActivity(me, "bir ödeme kaydetti. Bakiyeler güncellendi.");
         await db.SaveChangesAsync(); await transaction.CommitAsync(); return NoContent();
     }
 }

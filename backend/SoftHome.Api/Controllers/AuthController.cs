@@ -26,6 +26,77 @@ public class AuthController(AppDbContext db, IPasswordHasher<User> hasher, IEmai
     public record Credentials(string Email, string Password);
     public record Registration(string Name, string Email, string Password, string? HouseholdName);
     public record Confirmation(string Token);
+    public record RecoveryRequest(string Email);
+    public record ResetPasswordInput(string Token, string Password);
+    public const string CredentialClaim = "softhome:credential";
+
+    [HttpPost("resend-verification"), EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResendVerification(RecoveryRequest request)
+    {
+        var normalized = Normalize(request.Email);
+        if (normalized is null) return BadRequest(new { message = "Geçerli bir e-posta adresi gir." });
+        if (!emailSender.IsConfigured || !TryPublicUrl(out var publicUrl)) return MailUnavailable();
+        var user = await db.Users.SingleOrDefaultAsync(u => u.NormalizedEmail == normalized);
+        const string message = "Bu adres için doğrulanmamış bir hesap varsa yeni bağlantı gönderilecek. Gelen kutunu ve spam klasörünü kontrol et. Yeni istek için bir dakika bekle.";
+        if (user is null || user.EmailConfirmed || user.VerificationSentAt > DateTime.UtcNow.AddMinutes(-1))
+            return Accepted(new { message });
+        var token = NewToken();
+        user.VerificationTokenHash = TokenHash(token);
+        user.VerificationExpiresAt = DateTime.UtcNow.AddHours(24);
+        user.VerificationSentAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        try { await emailSender.SendConfirmationAsync(user.Email, $"{publicUrl}/?verify={Uri.EscapeDataString(token)}"); }
+        catch (Exception ex) { logger.LogWarning("Verification delivery failed ({Type}).", ex.GetType().Name); return MailUnavailable(); }
+        return Accepted(new { message });
+    }
+
+    [HttpPost("forgot-password"), EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword(RecoveryRequest request)
+    {
+        var normalized = Normalize(request.Email);
+        if (normalized is null) return BadRequest(new { message = "Geçerli bir e-posta adresi gir." });
+        if (!emailSender.IsConfigured || !TryPublicUrl(out var publicUrl)) return MailUnavailable();
+        const string message = "Bu adres için doğrulanmış bir hesap varsa şifre yenileme bağlantısı gönderilecek. Gelen kutunu ve spam klasörünü kontrol et. Yeni istek için bir dakika bekle.";
+        var user = await db.Users.SingleOrDefaultAsync(u => u.NormalizedEmail == normalized && u.EmailConfirmed);
+        if (user is null) return Accepted(new { message });
+        var recovery = await db.PasswordRecoveries.FindAsync(user.Id);
+        if (recovery?.CreatedAt > DateTime.UtcNow.AddMinutes(-1)) return Accepted(new { message });
+        var token = NewToken();
+        if (recovery is null) { recovery = new PasswordRecovery { UserId = user.Id }; db.PasswordRecoveries.Add(recovery); }
+        recovery.TokenHash = TokenHash(token);
+        recovery.CreatedAt = DateTime.UtcNow;
+        recovery.ExpiresAt = DateTime.UtcNow.AddMinutes(30);
+        await db.SaveChangesAsync();
+        try { await emailSender.SendPasswordResetAsync(user.Email, $"{publicUrl}/?reset={Uri.EscapeDataString(token)}"); }
+        catch (Exception ex) { logger.LogWarning("Reset delivery failed ({Type}).", ex.GetType().Name); return MailUnavailable(); }
+        return Accepted(new { message });
+    }
+
+    [HttpPost("reset-password"), EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordInput input)
+    {
+        if (string.IsNullOrWhiteSpace(input.Token) || input.Token.Length > 100 || input.Password is null || input.Password.Length < 12 || input.Password.Length > 128)
+            return BadRequest(new { message = "Geçerli bağlantıyı kullan ve 12–128 karakterlik bir şifre belirle." });
+        var hash = TokenHash(input.Token);
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        var recovery = await db.PasswordRecoveries.AsNoTracking().SingleOrDefaultAsync(r => r.TokenHash == hash && r.ExpiresAt > DateTime.UtcNow);
+        if (recovery is null) return BadRequest(new { message = "Bağlantı geçersiz veya süresi dolmuş. Yeni şifre yenileme bağlantısı iste." });
+        // Consume atomically so concurrent submissions cannot reuse the link.
+        if (await db.PasswordRecoveries.Where(r => r.UserId == recovery.UserId && r.TokenHash == hash).ExecuteDeleteAsync() != 1)
+            return BadRequest(new { message = "Bu bağlantı daha önce kullanılmış. Yeni bağlantı iste." });
+        var user = await db.Users.SingleAsync(u => u.Id == recovery.UserId);
+        user.PasswordHash = hasher.HashPassword(user, input.Password);
+        user.FailedLogins = 0; user.LockedUntil = null;
+        await db.SaveChangesAsync(); await transaction.CommitAsync();
+        return Ok(new { message = "Şifren yenilendi. Yeni şifrenle giriş yapabilirsin." });
+    }
+
+    private bool TryPublicUrl(out string? url)
+    {
+        url = config["PublicUrl"]?.TrimEnd('/');
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) && (uri.Scheme == "https" || uri.IsLoopback);
+    }
+    private ObjectResult MailUnavailable() => StatusCode(503, new { message = "E-posta hizmetine şu anda ulaşılamıyor. Biraz sonra tekrar dene veya ev yöneticisine haber ver." });
 
     public static string TokenHash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
     public static string NewToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
@@ -133,7 +204,8 @@ public class AuthController(AppDbContext db, IPasswordHasher<User> hasher, IEmai
         user.LockedUntil = null;
         if (result == PasswordVerificationResult.SuccessRehashNeeded) user.PasswordHash = hasher.HashPassword(user, request.Password);
         await db.SaveChangesAsync();
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Name, user.Username)], CookieAuthenticationDefaults.AuthenticationScheme);
+        var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), new Claim(ClaimTypes.Name, user.Username),
+            new Claim(CredentialClaim, TokenHash(user.PasswordHash))], CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity),
             new AuthenticationProperties { IsPersistent = false, ExpiresUtc = DateTimeOffset.UtcNow.AddHours(8), AllowRefresh = false });
         return Ok(new { id = user.Id, name = user.Username });

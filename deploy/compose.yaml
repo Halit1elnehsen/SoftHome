@@ -1,0 +1,46 @@
+services:
+  app:
+    build: ..
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      PublicUrl: https://${SOFTHOME_DOMAIN:?Sunucu alan adını ayarla}
+      AllowedHosts: ${SOFTHOME_DOMAIN}
+      # Trust only the dedicated reverse proxy's fixed private address.
+      ReverseProxy__KnownProxy: 172.29.84.2
+      Email__SmtpHost: ${SMTP_HOST:?SMTP sunucusunu ayarla}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__SmtpUsername: ${SMTP_USERNAME}
+      Email__SmtpPassword: ${SMTP_PASSWORD}
+      Email__From: ${SMTP_FROM:?Gönderici adresini ayarla}
+    volumes:
+      - app-data:/app/data
+    networks:
+      - softhome
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    environment:
+      SOFTHOME_DOMAIN: ${SOFTHOME_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      softhome:
+        ipv4_address: 172.29.84.2
+    depends_on:
+      - app
+volumes:
+  app-data:
+  caddy-data:
+  caddy-config:
+networks:
+  softhome:
+    ipam:
+      config:
+        - subnet: 172.29.84.0/24
