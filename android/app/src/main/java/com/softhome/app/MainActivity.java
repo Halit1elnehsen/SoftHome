@@ -109,14 +109,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            private boolean awaitingPage = false;
+
             @Override
             public void handleOnBackPressed() {
-                if (webView.canGoBack()) webView.goBack();
-                else {
-                    setEnabled(false);
-                    getOnBackPressedDispatcher().onBackPressed();
-                    setEnabled(true);
-                }
+                if (awaitingPage) return;
+                awaitingPage = true;
+                webView.evaluateJavascript("Boolean(window.SoftHomeBack && window.SoftHomeBack())", handled -> {
+                    awaitingPage = false;
+                    if (isFinishing() || isDestroyed() || "true".equals(handled)) return;
+                    if (webView.canGoBack()) webView.goBack();
+                    else {
+                        setEnabled(false);
+                        getOnBackPressedDispatcher().onBackPressed();
+                        setEnabled(true);
+                    }
+                });
             }
         });
         webView.loadUrl(BuildConfig.SOFT_HOME_URL.isEmpty()

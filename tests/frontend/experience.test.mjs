@@ -323,3 +323,32 @@ test("Pull-to-refresh requires a deliberate downward pull and cancellation never
     w.close();
   }
 });
+test("Android back closes owner settings before navigation and returns onboarding forms to the choice", async () => {
+  const first = harness();
+  try {
+    await until(() => !first.d.querySelector("#app-shell").hidden);
+    first.d.querySelector(".profile-button").click();
+    await until(() => first.d.querySelector("[data-action=house-settings]"));
+    first.d.querySelector("[data-action=house-settings]").click();
+    assert.equal(first.d.querySelector("#info-dialog").open, true);
+    assert.equal(first.w.SoftHomeBack(), true);
+    assert.equal(first.d.querySelector("#info-dialog").open, false);
+    assert.equal(first.w.location.hash, "#profile");
+    assert.equal(first.w.SoftHomeBack(), false);
+  } finally {
+    first.w.close();
+  }
+  const s = state();
+  s.household.setupComplete = false;
+  const second = harness(s);
+  try {
+    await until(() => !second.d.querySelector("#setup-shell").hidden);
+    second.d.querySelector("[data-setup-choice=join]").click();
+    assert.equal(second.d.querySelector("#setup-choices").hidden, true);
+    assert.equal(second.w.SoftHomeBack(), true);
+    assert.equal(second.d.querySelector("#setup-choices").hidden, false);
+    assert.equal(second.d.querySelector("#home-join-form").hidden, true);
+  } finally {
+    second.w.close();
+  }
+});

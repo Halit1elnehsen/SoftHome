@@ -93,7 +93,8 @@ let month = new Date().toISOString().slice(0, 7),
   toastTimer,
   lastFocus,
   workspaceRequest = 0,
-  refreshPromise = null;
+  refreshPromise = null,
+  setupBusy = false;
 const getMember = (id) =>
   data.members.find((m) => m.id === id) || {
     id,
@@ -1378,21 +1379,39 @@ document.addEventListener("submit", async (event) => {
     button.disabled = false;
   }
 });
-document.addEventListener("click", (event) => {
-  const choice = event.target.closest("[data-setup-choice]");
-  if (!choice) return;
-  const mode = choice.dataset.setupChoice;
+function selectSetupChoice(mode) {
+  if (setupBusy) return;
   $("#setup-choices").hidden = !!mode;
   $("#home-create-form").hidden = mode !== "create";
   $("#home-join-form").hidden = mode !== "join";
   $("#setup-message").hidden = true;
   if (mode) $(mode === "create" ? "#setup-house-name" : "#setup-code").focus();
+}
+document.addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-setup-choice]");
+  if (choice) selectSetupChoice(choice.dataset.setupChoice);
 });
+window.SoftHomeBack = () => {
+  const dialog = document.querySelector("dialog[open]");
+  if (dialog) {
+    closeDialog(dialog);
+    return true;
+  }
+  if (!$("#setup-shell").hidden && $("#setup-choices").hidden) {
+    selectSetupChoice("");
+    return true;
+  }
+  return false;
+};
 document.addEventListener("submit", async (event) => {
   if (!["home-create-form", "home-join-form"].includes(event.target.id)) return;
   event.preventDefault();
-  if (event.target.dataset.busy === "true") return;
+  if (setupBusy) return;
+  setupBusy = true;
   event.target.dataset.busy = "true";
+  $("#setup-shell")
+    .querySelectorAll("[data-setup-choice]")
+    .forEach((b) => (b.disabled = true));
   const form = new FormData(event.target),
     button = event.target.querySelector('[type="submit"]');
   button.disabled = true;
@@ -1429,6 +1448,10 @@ document.addEventListener("submit", async (event) => {
   } finally {
     button.disabled = false;
     delete event.target.dataset.busy;
+    setupBusy = false;
+    $("#setup-shell")
+      .querySelectorAll("[data-setup-choice]")
+      .forEach((b) => (b.disabled = false));
   }
 });
 function setRefreshIndicator(visible, label = "Güncelleniyor…") {

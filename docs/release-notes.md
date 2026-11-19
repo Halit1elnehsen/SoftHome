@@ -7,7 +7,7 @@ SoftHome 1.4.0
 - Paylaşım ekranında doğrudan kimin kime ödeyeceği ve kişi kişi harcama listeleri.
 - Yatay üç nokta göstergeli aşağı çekerek yenileme ve taslak koruması.
 - Mevcut renklerle basılma derinliği olan düğmeler; küçük ekranlarda da görünür profil simgesi.
-- Android üst/alt sistem çubukları açık/koyu görünümle eşleşir.
+- Android üst/alt sistem çubukları açık/koyu görünümle eşleşir; geri tuşu önce açık ayarlar penceresini kapatır.
 
 Mevcut evler ve kayıtlar korunur. Supabase profile_house_onboarding geçişi uygulanmalıdır. Aynı özel release anahtarı kullanılır; eski debug APK'dan ilk geçişte yeniden kurulum gerekebilir. Supabase kayıtları silinmez.
 
