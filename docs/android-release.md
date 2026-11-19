@@ -1,6 +1,6 @@
 # Android imzası, yedek ve Release
 
-Sürüm `1.4.0` (`versionCode=5`) özel bir RSA 3072 / PKCS12 anahtarıyla imzalanır. Release derlemesi gerekli ayarlar olmadan hata verir; debug imzasına düşmez.
+Sürüm `1.4.1` (`versionCode=6`) özel bir RSA 3072 / PKCS12 anahtarıyla imzalanır. Release derlemesi gerekli ayarlar olmadan hata verir; debug imzasına düşmez.
 
 ## İmza anahtarını koruma
 
@@ -49,7 +49,7 @@ Yetkili bir `gh` oturumunda, özel yedeği açtığın klasörden bu dört değe
 python android/scripts/configure-signing.py /OZEL/YEDEK/KLASORU --repo Halit1elnehsen/SoftHome
 ```
 
-Bu işlem için GitHub bağlantısının Repository Secrets yazma yetkisi gerekir. Ardından **Actions → Signed Android release → Run workflow** seç, sürüm etiketini Android `versionName` ile eşleştir (`v1.4.0`). İş; testleri, Android lint'i ve imza doğrulamasını çalıştırır, APK'yı ve SHA-256 dosyasını Release'e yükler. Anahtarı job bitince runner'dan siler.
+Bu işlem için GitHub bağlantısının Repository Secrets yazma yetkisi gerekir. Ardından **Actions → Signed Android release → Run workflow** seç, sürüm etiketini Android `versionName` ile eşleştir (`v1.4.1`). İş; testleri, Android lint'i ve imza doğrulamasını çalıştırır, APK'yı ve SHA-256 dosyasını Release'e yükler. Anahtarı job bitince runner'dan siler.
 
 Yerelde hazır ve doğrulanmış bir APK da `gh release create ... SoftHome.apk SHA256SUMS.txt` ile yüklenebilir. Kullanılan GitHub bağlantısı `uploads.github.com` adresine yetkili dosya yüklemeyi desteklemelidir. Başarısız yüklemeyi tamamlanmış dağıtım gibi değerlendirme.
 
@@ -69,3 +69,19 @@ Supabase **Reset password** şablonu `{{ .Token }}` içermelidir. Gmail günlük
 Bu sürümün açık sertifika SHA-256 izi: `03277fd74ecb192fedea8d347a3a8bfa9db5af2d5d1640dd722851321dcb25b2`. Bu parmak izi gizli anahtar değildir; yeni APK imzasını karşılaştırmak için kullanılır.
 
 1.4.0, 1.3.0 için oluşturulan aynı özel anahtarı kullanır. İmza anahtarı yenilenmez. Telefon kabul testine kayıtlı oturumla yeniden açılış, profil bilgileri, yeni hesapla ev kurma/katılma, üst/alt çubuk renkleri ve aşağı çekerek yenileme de eklenmelidir.
+
+## Eski test kurulumundan imza geçişi
+
+1.4.1 standart release'i v1/v2/v3 şemalarıyla özel anahtardan imzalanır. `android/scripts/sign-legacy-upgrade.py`, aynı uygulama içeriğinden geçiş APK'sı oluşturur. `android/signing/softhome-test-to-release.lineage` yalnızca açık sertifikaları ve eski-yeni anahtarın imza geçiş kanıtını içerir; gizli anahtar içermez.
+
+Geçiş paketi Android 9+ üzerinde özel release anahtarını, daha eski platformlarda önceki test anahtarını kullanır. `rotation-min-sdk-version=28` korunmalıdır. Android 9+ imza geçmişi, bizim 1.2 test APK'sından veri kaybetmeden güncelleme yolunu destekler. Başka bir bilgisayarda farklı anahtarla oluşturulmuş sürümler bu zincire dahil değildir; fiziksel cihazdaki kurulum sonucu ayrıca kontrol edilmelidir.
+
+Geçiş betiğine normal dört imza değişkenine ek olarak `SOFTHOME_LEGACY_KEYSTORE_PATH`, `SOFTHOME_LEGACY_KEYSTORE_PASSWORD`, `SOFTHOME_LEGACY_KEY_ALIAS`, `SOFTHOME_LEGACY_KEY_PASSWORD` sağlanır. İki keystore da Git dışında, özel yedekte saklanır. Standart release dosyasının üzerine yazılmaz.
+
+```bash
+python android/scripts/sign-legacy-upgrade.py android/app/build/outputs/apk/release/app-release.apk /OZEL/CIKTI/SoftHome-1.4.1-gecis.apk --lineage android/signing/softhome-test-to-release.lineage
+```
+
+Android 7/8'de geçiş paketi eski anahtarı kullanır; bu cihazlarda sonradan standart özel imzalı APK'ya doğrudan güncelleme yapılamaz. Eski anahtarla devam etmek veya yeniden kurmak gerekir. Standart özel imzalı kurulumu olan bu cihazlara geçiş paketi yerine standart APK verilmelidir.
+
+Resmi araç açıklaması: https://developer.android.com/tools/apksigner#usage

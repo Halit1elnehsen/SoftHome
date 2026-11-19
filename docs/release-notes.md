@@ -1,14 +1,8 @@
-SoftHome 1.4.0
+SoftHome 1.4.1
 
-- Kayıtlı oturum açılırken giriş/kayıt ekranı görünmez; geçici ağ hatası için yeniden deneme görünümü.
-- Ad, doğrulanmış e-posta, ev ve rol bilgilerini gösteren profil; çıkış profil ayarlarında.
-- Ev kurma/katılma seçimi e-posta doğrulamasından sonra yapılır. Katılan kişiden ev adı istenmez.
-- Ev adı ve bütçe yalnızca ev sahibinin profil ayarlarında düzenlenir.
-- Paylaşım ekranında doğrudan kimin kime ödeyeceği ve kişi kişi harcama listeleri.
-- Yatay üç nokta göstergeli aşağı çekerek yenileme ve taslak koruması.
-- Mevcut renklerle basılma derinliği olan düğmeler; küçük ekranlarda da görünür profil simgesi.
-- Android üst/alt sistem çubukları açık/koyu görünümle eşleşir; geri tuşu önce açık ayarlar penceresini kapatır.
+- Standart release imzasında v1/v2/v3 desteği etkinleştirildi.
+- Önceki 1.2 test anahtarından özel anahtara geçişi içeren ayrı APK ve üretim betiği eklendi.
+- Geçiş zincirindeki sertifikalar eski APK ve mevcut özel anahtarla karşılaştırıldı. Android API 24–35 imza kontrolleri ve ZIP hizalama kontrolü yapıldı.
+- Profil, ev kurma/katılma, paylaşım ve yenileme arayüzleri 1.4.0 ile aynıdır.
 
-Mevcut evler ve kayıtlar korunur. Supabase profile_house_onboarding geçişi uygulanmalıdır. Aynı özel release anahtarı kullanılır; eski debug APK'dan ilk geçişte yeniden kurulum gerekebilir. Supabase kayıtları silinmez.
-
-Tarayıcı, otomatik test ve Android derleme kontrolleri yapılır. Gerçek telefonda kamera, sistem çubukları ve gerçek Gmail ile şifre kurtarma ayrıca kontrol edilmelidir. Bildirimler uygulama açıkken gelir; kapalıyken sistem push bildirimi yoktur.
+Android 9+ üzerinde özel anahtara geçiş desteklenir. Android 7/8 geçiş paketinde eski anahtarı kullanır. Standart ve geçiş paketleri ayrı tutulmalıdır. Fiziksel telefonda kurulum henüz doğrulanmamıştır.

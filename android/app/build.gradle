@@ -23,8 +23,8 @@ android {
         applicationId "com.softhome.app"
         minSdk 24
         targetSdk 34
-        versionCode 5
-        versionName "1.4.0"
+        versionCode 6
+        versionName "1.4.1"
         def serviceUrl = (project.findProperty('softHomeUrl') ?: '').toString()
         if (serviceUrl && !serviceUrl.startsWith('https://')) {
             throw new GradleException('softHomeUrl must use HTTPS')
@@ -35,6 +35,9 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             release {
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
                 storeFile file(signingValues.path)
                 storePassword signingValues.storePassword
                 keyAlias signingValues.alias
