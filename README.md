@@ -19,7 +19,7 @@ Ev arkadaşları için özel Android uygulaması. Herkes kendi e-posta hesabıyl
 
 Arayüz APK'nın içindedir. Ortak hizmet Supabase'dir; ayrı ücretli sunucu veya web sitesi yayını gerekmez. Free plan ve Gmail kullanım sınırları geçerlidir. Uygulama kapalıyken sistem push bildirimi bu sürümde yoktur; açıldığında okunmamış haberler yüklenir.
 
-**APK indirme:** [GitHub Releases → Assets → SoftHome.apk](https://github.com/Halit1elnehsen/SoftHome/releases).
+**APK indirme:** [SoftHome 1.4.0 APK'yı doğrudan indir](https://raw.githubusercontent.com/Halit1elnehsen/SoftHome/main/downloads/SoftHome-1.4.0.apk). Hazır paket `downloads/SoftHome-1.4.0.apk` konumundadır.
 
 **Kurulum, e-posta şablonları, güvenlik ve APK derlemesi:** [Özel Android kılavuzu](docs/private-android.md).
 
