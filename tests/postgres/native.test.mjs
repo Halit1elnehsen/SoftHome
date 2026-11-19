@@ -53,6 +53,26 @@ test("Verified household RPCs isolate homes, split cents, settle once and revoke
         "utf8",
       ),
     );
+    await db.exec(
+      `INSERT INTO public."Households" ("Name","MonthlyBudget") VALUES ('Existing home before upgrade',20000);`,
+    );
+    await db.exec(
+      await readFile(
+        new URL(
+          "../../supabase/migrations/20261119184738_profile_house_onboarding.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    assert.equal(
+      (
+        await db.query(
+          `SELECT "SetupCompleted" FROM public."Households" WHERE "Name"='Existing home before upgrade'`,
+        )
+      ).rows[0].SetupCompleted,
+      true,
+    );
     const as = async (i) => {
       await db.exec("RESET ROLE");
       await db.query("SELECT set_config('request.jwt.claims',$1,false)", [
@@ -76,6 +96,15 @@ test("Verified household RPCs isolate homes, split cents, settle once and revoke
     await assert.rejects(call("workspace"), /doğrula/);
     await as(1);
     const a = await call("workspace");
+    assert.equal(a.household.setupComplete, false);
+    await assert.rejects(call("setup_house", ["", 10000]), /Geçerli/);
+    await call("setup_house", ["Synthetic home", 100000]);
+    assert.equal((await call("workspace")).household.setupComplete, true);
+    await call("setup_house", ["Synthetic home", 100000]);
+    await assert.rejects(
+      call("setup_house", ["Rename via setup", 100000]),
+      /profilindeki/,
+    );
     assert.equal(a.members.length, 1);
     await assert.rejects(
       db.query("SELECT softhome_private.activity(1,'fake')"),
@@ -90,6 +119,10 @@ test("Verified household RPCs isolate homes, split cents, settle once and revoke
     const b = await call("workspace");
     assert.notEqual(a.household.id, b.household.id);
     await call("join", [invite.code]);
+    await assert.rejects(
+      call("setup_house", ["Not owner", 100000]),
+      /kuran kişi/,
+    );
     const joined = await call("workspace");
     assert.equal(joined.household.id, a.household.id);
     assert.equal(joined.members.length, 2);
@@ -132,7 +165,7 @@ test("Verified household RPCs isolate homes, split cents, settle once and revoke
     assert.equal((await call("workspace")).expenses.length, 0);
     await as(2);
     let notices = await call("notifications");
-    assert.equal(notices.unreadCount, 1);
+    assert.equal(notices.unreadCount, 2);
     await call("mark_read", [notices.latestId]);
     await call("mark_read", [0]);
     assert.equal((await call("notifications")).unreadCount, 0);

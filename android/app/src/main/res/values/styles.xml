@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SoftHome" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:statusBarColor">#F2F2F7</item>
+    <style name="Theme.SoftHome.Base" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">#f4f6f2</item>
+        <item name="android:statusBarColor">#f4f6f2</item>
         <item name="android:windowLightStatusBar">true</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:navigationBarColor">#fbfcfa</item>
     </style>
+    <style name="Theme.SoftHome" parent="Theme.SoftHome.Base" />
 </resources>

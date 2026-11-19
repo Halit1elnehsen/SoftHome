@@ -3,6 +3,11 @@ package com.softhome.app;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.view.View;
+import android.graphics.Color;
+import android.os.Build;
+import android.webkit.JavascriptInterface;
+import androidx.core.view.WindowInsetsControllerCompat;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -62,6 +67,9 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         webView = findViewById(R.id.webview);
+        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        applySystemTheme(getSharedPreferences("appearance", MODE_PRIVATE).getString("theme", "light"));
+        webView.addJavascriptInterface(new AppearanceBridge(), "SoftHomeNative");
         cleanOldPhotos();
 
         final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
@@ -113,6 +121,34 @@ public class MainActivity extends AppCompatActivity {
         });
         webView.loadUrl(BuildConfig.SOFT_HOME_URL.isEmpty()
                 ? "https://appassets.androidplatform.net/assets/index.html" : BuildConfig.SOFT_HOME_URL);
+    }
+
+    private void applySystemTheme(String theme) {
+        boolean dark = "dark".equals(theme);
+        int background = Color.parseColor(dark ? "#17231e" : "#f4f6f2");
+        int navigation = Color.parseColor(dark ? "#21312a" : "#fbfcfa");
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(navigation);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+            getWindow().setStatusBarContrastEnforced(false);
+        }
+        WindowInsetsControllerCompat controller = new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        controller.setAppearanceLightStatusBars(!dark);
+        controller.setAppearanceLightNavigationBars(!dark);
+        if (webView != null) webView.setBackgroundColor(background);
+    }
+
+    public final class AppearanceBridge {
+        @JavascriptInterface
+        public void setTheme(String theme) {
+            if (!"dark".equals(theme) && !"light".equals(theme)) return;
+            runOnUiThread(() -> {
+                applySystemTheme(theme);
+                if (!theme.equals(getSharedPreferences("appearance", MODE_PRIVATE).getString("theme", "light")))
+                    getSharedPreferences("appearance", MODE_PRIVATE).edit().putString("theme", theme).apply();
+            });
+        }
     }
 
     private void requestCamera() {

@@ -300,7 +300,9 @@ test("A housemate's changes refresh automatically, preserve drafts, and remain u
       w.document.querySelector("#sync-status").textContent,
       "Ev ile bağlantı güncel",
     );
-    w.document.querySelector('[data-action="logout"]').click();
+    w.document.querySelector(".profile-button").click();
+    await until(() => w.document.querySelector("#page [data-action=logout]"));
+    w.document.querySelector("#page [data-action=logout]").click();
     await until(() => !w.document.querySelector("#auth-shell").hidden);
     const calls = feedCalls;
     await tick();
@@ -423,39 +425,34 @@ test("Reset links are removed from the address bar and submitted with the new ma
   }
 });
 
-test("An initial session check cannot interrupt an already opened recovery form", async () => {
+test("Login controls appear only after an unauthenticated initial session check completes", async () => {
   const dom = new JSDOM(html, {
-    url: "https://softhome.test/",
-    runScripts: "outside-only",
-  });
-  const w = dom.window;
+      url: "https://softhome.test/",
+      runScripts: "outside-only",
+    }),
+    w = dom.window;
   w.Headers = Headers;
   w.scrollTo = () => {};
   let finishSessionCheck;
   w.fetch = async (path) => {
     if (path === "/api/auth/csrf") return Response.json({ token: "csrf" });
     if (path === "/api/workspace")
-      return new Promise((resolve) => {
-        finishSessionCheck = resolve;
-      });
-    throw new Error("Unexpected request");
+      return new Promise((resolve) => (finishSessionCheck = resolve));
+    throw Error("Unexpected request");
   };
   try {
     w.eval(source);
     await until(() => finishSessionCheck);
-    w.document.querySelector("#forgot-password").click();
-    w.document.querySelector("#auth-email").value = "housemate@example.org";
+    assert.equal(w.document.querySelector("#auth-shell").hidden, true);
+    assert.equal(w.document.querySelector("#boot-shell").hidden, false);
     finishSessionCheck(Response.json({}, { status: 401 }));
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await until(() => !w.document.querySelector("#auth-shell").hidden);
+    w.document.querySelector("#forgot-password").click();
     assert.equal(
       w.document.querySelector("#auth-title").textContent,
       "Şifreni yenileyelim.",
     );
-    assert.equal(
-      w.document.querySelector("#auth-email").value,
-      "housemate@example.org",
-    );
   } finally {
-    dom.window.close();
+    w.close();
   }
 });

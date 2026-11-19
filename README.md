@@ -9,11 +9,13 @@ Ev arkadaşları için özel Android uygulaması. Herkes kendi e-posta hesabıyl
 ## Android sürümü
 
 - E-postaya gelen **6 haneli kodla** kayıt doğrulaması; şifreyle giriş ve kodla şifre kurtarma.
-- **Ev katılım koduyla** ayrı hesapları aynı eve bağlama.
+- Doğrulamadan sonra **ev kur / davet koduyla katıl** seçimi; katılan kişiden ev adı istenmez.
+- **Profilim ve ayarlar:** hesap adı, e-posta, ev rolü; ev yöneticisine özel ad/bütçe ayarları ve profil içinde çıkış.
 - Harcama, kategori, bütçe ve fatura fotoğrafı; kuruş kaybetmeden eşit paylaşım.
 - İstek kimliğiyle tekrarlı kaydı önleyen ödeme takibi. Gerçek para transferi yapmaz.
 - Uygulama açıkken **anlık ortak güncelleme**, kalıcı bildirim geçmişi ve kişiye özel okunma durumu.
-- Telefona uygun adaçayı/yeşil arayüz, açık/koyu tema ve arama.
+- Telefona uygun adaçayı/yeşil arayüz, basılma derinliği olan düğmeler, açık/koyu tema ve arama.
+- Kayıtlı oturum açılırken giriş ekranı gösterilmez; aşağı çekerek yenileme üç noktalı göstergeyle çalışır.
 
 Arayüz APK'nın içindedir. Ortak hizmet Supabase'dir; ayrı ücretli sunucu veya web sitesi yayını gerekmez. Free plan ve Gmail kullanım sınırları geçerlidir. Uygulama kapalıyken sistem push bildirimi bu sürümde yoktur; açıldığında okunmamış haberler yüklenir.
 

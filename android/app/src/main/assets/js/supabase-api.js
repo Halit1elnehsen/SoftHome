@@ -166,7 +166,7 @@
         email: body.email,
         password: body.password,
         options: {
-          data: { name: body.name, householdName: body.householdName },
+          data: { name: body.name },
         },
       });
       check(error);
@@ -263,6 +263,11 @@
       return rpc("softhome_notifications");
     if (path === "/api/workspace/notifications/read")
       return rpc("softhome_mark_read", { through_id: body.throughId });
+    if (path === "/api/workspace/household/setup")
+      return rpc("softhome_setup_house", {
+        name: body.name,
+        budget_cents: body.budgetCents,
+      });
     if (path === "/api/workspace/household" && method === "PUT")
       return rpc("softhome_update_house", {
         name: body.name,

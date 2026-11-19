@@ -91,7 +91,9 @@ let month = new Date().toISOString().slice(0, 7),
   filter = "all",
   search = "",
   toastTimer,
-  lastFocus;
+  lastFocus,
+  workspaceRequest = 0,
+  refreshPromise = null;
 const getMember = (id) =>
   data.members.find((m) => m.id === id) || {
     id,
@@ -124,6 +126,10 @@ function hydrate() {
     $("#profile-role").textContent = me.role;
     $("#profile-initial").textContent = me.name.charAt(0);
     $(".profile-button").textContent = me.name.charAt(0);
+    $(".profile-button").setAttribute(
+      "aria-label",
+      `${me.name} — Profilim ve ayarlar`,
+    );
   }
 }
 
@@ -250,16 +256,26 @@ function expenseResults() {
   return `<p class="expense-count">${list.length} harcama <span aria-hidden="true">·</span> Toplam <strong>${money(list.reduce((s, e) => s + e.cents, 0))}</strong></p>${transactionPanel(list, true)}`;
 }
 function balances() {
-  const list = currentExpenses(),
-    sum = list.reduce((s, e) => s + e.cents, 0),
-    t = totals(),
+  const t = totals(),
     debt = transfers();
+  const owner = data.household.ownerId === data.meId;
+  const members = [...data.members].sort((a, b) =>
+    a.id === "me" ? -1 : b.id === "me" ? 1 : a.name.localeCompare(b.name, "tr"),
+  );
   return (
     heading(
-      "Herkesin payı belli.",
-      "Kimin kime ödeme yapacağını tek bakışta gör.",
+      "Kim kime ödeyecek?",
+      "Harcamalar ve aranızdaki hesap, tek bir yerde.",
     ) +
-    `<div class="summary-strip"><div><span>Toplam ortak harcama</span><strong>${money(sum)}</strong></div><div><span>Senin ödediğin</span><strong>${money(t.me.paid)}</strong></div><div><span>Senin harcama payın</span><strong>${money(t.me.share)}</strong></div></div><div class="member-balances">${data.members.map((m) => `<section class="balance-person"><div class="person-title">${avatar(m.id)}<div><h3>${escapeHTML(m.name)}${m.id === "me" ? " (Sen)" : ""}</h3><small>${escapeHTML(m.role)}</small></div></div><dl><div><dt>Ödediği</dt><dd>${money(t[m.id].paid)}</dd></div><div><dt>Harcama payı</dt><dd>${money(t[m.id].share)}</dd></div></dl><div class="net-value">${money(Math.abs(t[m.id].net))}<small>${t[m.id].net < 0 ? "Ödemesi gerekiyor" : t[m.id].net > 0 ? "Alacağı bulunuyor" : "Bakiyesi kapandı"}</small></div></section>`).join("")}</div><section class="transfer-panel"><h2>Kim kime ödeyecek?</h2><p class="transfer-intro">Net bakiyeleri kapatmak için ${debt.length} ödeme${debt.length ? " yeterli." : " gerekmiyor."}</p>${debt.length ? debt.map((p, i) => `<div class="transfer"><div class="transfer-people"><span class="person">${avatar(p.from)}<strong>${escapeHTML(getMember(p.from).name)}</strong></span>${icon("arrow")}<span class="person">${avatar(p.to)}<strong>${escapeHTML(getMember(p.to).name)}</strong></span></div><span class="transfer-amount">${money(p.cents)}</span><button class="button button-secondary" data-pay="${i}">${icon("check")}Ödendi olarak işaretle</button></div>`).join("") : `<div class="success-state">${icon("check")}<strong>Hesaplar kapandı.</strong><p>Bu ay için herkesin bakiyesi eşitlendi.</p></div>`}</section>${
+    `<section class="transfer-panel settlement-first"><div class="section-heading"><div><h2>Aranızdaki hesap</h2><p class="section-note">Ödeme yapıldıktan sonra kaydet; herkesin bakiyesi güncellensin.</p></div><span class="status-tag">${debt.length ? debt.length + " ödeme" : "Dengede"}</span></div>${debt.length ? debt.map((p, i) => `<div class="transfer"><div class="transfer-people"><span class="person">${avatar(p.from)}<strong>${escapeHTML(getMember(p.from).name)}</strong></span>${icon("arrow")}<span class="person">${avatar(p.to)}<strong>${escapeHTML(getMember(p.to).name)}</strong></span></div><strong class="transfer-amount">${money(p.cents)}</strong>${owner || p.from === "me" ? `<button class="button button-secondary" data-pay="${i}">${icon("check")}Ödemeyi kaydet</button>` : `<span class="section-note">Ödemeyi yapan kişi kaydedebilir.</span>`}</div>`).join("") : `<div class="success-state">${icon("check")}<strong>Hesaplar tamam.</strong><p>Bu ay için açık ödeme bulunmuyor.</p></div>`}</section>
+    <div class="section-heading spending-heading"><div><h2>Kim ne harcadı?</h2><p class="section-note">${monthName(month)} · Her kişinin ödediği harcamalar.</p></div></div>
+    <div class="member-balances">${members
+      .map((m) => {
+        const bought = currentExpenses().filter((e) => e.payer === m.id),
+          net = t[m.id].net;
+        return `<section class="balance-person purchase-card"><div class="person-title">${avatar(m.id)}<div><h3>${escapeHTML(m.name)}${m.id === "me" ? ' <span class="me-tag">Sen</span>' : ""}</h3><small>${escapeHTML(m.role)}</small></div></div><div class="purchase-list">${bought.length ? bought.map((e) => `<button class="purchase-row" data-detail="${e.id}"><span><strong>${escapeHTML(e.name)}</strong><small>${dateName(e.date)}</small></span><strong>${money(e.cents)}</strong></button>`).join("") : `<p class="section-note">Bu ay henüz harcama ödemedi.</p>`}</div><dl><div><dt>Ödediği</dt><dd>${money(t[m.id].paid)}</dd></div><div><dt>Payına düşen</dt><dd>${money(t[m.id].share)}</dd></div></dl><div class="net-value">${money(Math.abs(net))}<small>${net < 0 ? "Ödeyeceği tutar" : net > 0 ? "Alacağı tutar" : "Hesabı kapandı"}</small></div></section>`;
+      })
+      .join("")}</div>${
       data.payments.filter((p) => p.month === month).length
         ? `<section class="payment-history"><h2>Kaydedilen ödemeler</h2>${data.payments
             .filter((p) => p.month === month)
@@ -274,15 +290,34 @@ function balances() {
 }
 function house() {
   const owner = data.household.ownerId === data.meId;
+  const founder = data.members.find(
+    (m) => m.serverId === data.household.ownerId,
+  );
   return (
     heading(
-      "Birlikte kurduğumuz ev.",
-      "Gerçek hesaplar, ortak harcamalar ve evinizin düzeni.",
+      "Aynı evin insanları.",
+      "Ortak eviniz ve birlikte paylaştıklarınız.",
     ) +
-    `<div class="member-page-grid"><section class="house-info">${icon("building")}<h2>${escapeHTML(data.household.name)}</h2><p>Herkesin payı, herkesin içi rahat.</p><div class="house-facts"><div><strong>${data.members.length}</strong><span>Ev arkadaşı</span></div><div><strong>${currentExpenses().length}</strong><span>Bu ayki harcama</span></div></div>${owner ? `<form id="house-form"><label for="house-name">Evinizin adı</label><input id="house-name" name="name" value="${escapeHTML(data.household.name)}" maxlength="80" required><label for="house-budget">Aylık bütçe (₺)</label><input id="house-budget" name="budget" inputmode="decimal" value="${data.household.budgetCents / 100}" required><button class="button button-secondary" type="submit">Ev bilgilerini kaydet</button></form>` : ""}</section><section class="house-members"><h2>Ev arkadaşları</h2>${data.members.map((m) => `<div class="member-card">${avatar(m.id)}<div><h3>${escapeHTML(m.name)}${m.id === "me" ? '<span class="me-tag">Sen</span>' : ""}</h3><p>${escapeHTML(m.role)}</p></div></div>`).join("")}${owner ? '<button class="button button-primary" id="create-invitation">Katılım kodu oluştur</button><p class="section-note">Ev arkadaşın kendi hesabıyla kayıt olup bu kodla evinize katılabilir. Kod 7 gün geçerlidir; yeni kod eskisini iptal eder.</p><div id="invitation-result" role="status"></div>' : ""}<form id="join-form"><label for="join-code">Bir eve katıl</label><input id="join-code" name="code" placeholder="Ev yöneticisinin verdiği kod" maxlength="100" required><button class="button button-secondary" type="submit">Eve katıl</button><p class="section-note">Yalnızca henüz harcama ve başka üye içermeyen hesabından başka bir eve katılabilirsin.</p></form></section></div>`
+    `<div class="member-page-grid"><section class="house-info">${icon("building")}<h2>${escapeHTML(data.household.name)}</h2><p>Herkesin payı, herkesin içi rahat.</p><div class="house-facts"><div><strong>${data.members.length}</strong><span>Ev arkadaşı</span></div><div><strong>${currentExpenses().length}</strong><span>Bu ayki harcama</span></div></div><p class="house-owner-note">Evi kuran: <strong>${escapeHTML(founder?.name || "Ev yöneticisi")}</strong></p>${owner ? `<button class="button button-secondary" data-action="profile">${icon("settings")}Profildeki ayarlar</button><p class="section-note">Ev adı ve bütçeyi profilindeki ayarlardan yönet.</p>` : ""}</section><section class="house-members"><h2>Ev arkadaşları</h2>${data.members.map((m) => `<div class="member-card">${avatar(m.id)}<div><h3>${escapeHTML(m.name)}${m.id === "me" ? '<span class="me-tag">Sen</span>' : ""}</h3><p>${escapeHTML(m.role)}</p></div></div>`).join("")}${owner ? `<button class="button button-primary" id="create-invitation">${icon("plus")}Ev arkadaşını davet et</button><p class="section-note">Arkadaşın, hesabını doğruladıktan sonra davet kodunla bu eve katılır.</p><div id="invitation-result" role="status"></div>` : ""}</section></div>`
+  );
+}
+function profile() {
+  const me = getMember("me"),
+    owner = data.household.ownerId === data.meId;
+  const founder = data.members.find(
+    (m) => m.serverId === data.household.ownerId,
+  );
+  return `<div class="profile-heading"><p class="greeting">KENDİ HESABIN, ORTAK EVİN</p><h1>Profilim ve ayarlar</h1><p class="page-subtitle">Hesabın ve evine ait tüm ayarlar.</p></div><div class="profile-grid"><section class="account-card"><span class="avatar avatar-me profile-avatar">${escapeHTML(me.name.charAt(0))}</span><h2>${escapeHTML(me.name)}</h2><p class="account-email">${escapeHTML(data.email)}</p><span class="verified-account">${icon("shield")}E-posta doğrulandı</span><dl class="account-facts"><div><dt>Ev</dt><dd>${escapeHTML(data.household.name)}</dd></div><div><dt>Rolün</dt><dd>${escapeHTML(me.role)}</dd></div><div><dt>Evi kuran</dt><dd>${escapeHTML(founder?.name || "Ev yöneticisi")}</dd></div></dl></section><section class="profile-settings"><h2>Ayarlar</h2>${owner ? `<button class="settings-row" data-action="house-settings"><span class="settings-icon">${icon("building")}</span><span><strong>Ev ayarları</strong><small>Ev adı ve aylık bütçe</small></span>${icon("arrow")}</button><button class="settings-row" data-action="house"><span class="settings-icon">${icon("users")}</span><span><strong>Ev arkadaşlarını davet et</strong><small>Katılım kodunu oluştur ve paylaş</small></span>${icon("arrow")}</button>` : `<div class="settings-note">${icon("building")}Ev adı ve bütçe, ev yöneticin tarafından düzenlenir.</div>`}<button class="settings-row" data-action="theme"><span class="settings-icon">${icon(data.theme === "dark" ? "sun" : "moon")}</span><span><strong>Görünüm</strong><small>${data.theme === "dark" ? "Koyu görünüm açık" : "Açık görünüm açık"}</small></span>${icon("arrow")}</button><button class="settings-row" data-action="help"><span class="settings-icon">${icon("help")}</span><span><strong>Nasıl çalışır?</strong><small>Harcamalar ve ödeme kayıtları</small></span>${icon("arrow")}</button><button class="settings-row logout-row" data-action="logout"><span class="settings-icon">${icon("lock")}</span><span><strong>Çıkış yap</strong><small>${escapeHTML(data.email)}</small></span>${icon("arrow")}</button></section></div>`;
+}
+function openHouseSettings() {
+  if (data.household.ownerId !== data.meId) return;
+  info(
+    "Ev ayarları",
+    `<form id="house-form" class="house-settings-form"><p class="section-note">Bu ayarlar ev arkadaşlarınla ortak kullandığın eve aittir.</p><label for="house-name">Ev adı</label><input id="house-name" name="name" value="${escapeHTML(data.household.name)}" maxlength="80" required><label for="house-budget">Aylık bütçe (₺)</label><input id="house-budget" name="budget" inputmode="decimal" value="${data.household.budgetCents / 100}" required><div class="dialog-actions"><button type="button" class="button button-secondary" data-close>Vazgeç</button><button class="button button-primary" type="submit">${icon("check")}Değişiklikleri kaydet</button></div></form>`,
   );
 }
 const titles = {
+  profile: "Profilim",
   overview: "Ev özeti",
   expenses: "Harcamalar",
   balances: "Borç paylaşımı",
@@ -292,13 +327,15 @@ function render() {
   if (!data.household) return;
   const route = location.hash.slice(1);
   page = Object.hasOwn(titles, route) ? route : "overview";
-  $("#page").innerHTML = { overview, expenses, balances, house }[page]();
+  $("#page").innerHTML = { overview, expenses, balances, house, profile }[
+    page
+  ]();
   $("#crumb-page").textContent = titles[page];
   document.querySelectorAll("[data-page]").forEach((a) => {
     if (a.dataset.page === page) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
-  document.documentElement.dataset.theme = data.theme || "light";
+  applyAppearance();
   $("#theme-label").textContent =
     data.theme === "dark" ? "Açık görünüm" : "Koyu görünüm";
   hydrate();
@@ -458,6 +495,8 @@ document.addEventListener("click", async (event) => {
     navigate(action);
     return;
   }
+  if (action === "house-settings") openHouseSettings();
+  if (action === "refresh") void refreshWorkspace();
   if (action === "add") openExpense();
   if (action === "remove-receipt") clearReceipt();
   if (action === "logout") {
@@ -841,16 +880,26 @@ function alias(id, current) {
   return Number(id) === Number(current) ? "me" : String(id);
 }
 async function loadWorkspace() {
-  const generation = syncGeneration;
+  const generation = syncGeneration,
+    request = ++workspaceRequest;
   let result;
   try {
     result = await api("/api/workspace");
   } catch (e) {
-    if (generation !== syncGeneration) return;
-    if (e.status === 401 && $("#auth-shell").hidden) showAuth();
+    if (generation !== syncGeneration || request !== workspaceRequest) return;
+    if (
+      e.status === 401 &&
+      (!$("#app-shell").hidden || !$("#setup-shell").hidden)
+    )
+      showAuth();
     throw e;
   }
-  if (generation !== syncGeneration) return;
+  if (generation !== syncGeneration || request !== workspaceRequest) return;
+  if (
+    data.household?.id === result.household.id &&
+    (result.revision ?? 0) < workspaceRevision
+  )
+    return;
   workspaceRevision = result.revision ?? 0;
   const myId = result.me.id;
   data = {
@@ -879,7 +928,20 @@ async function loadWorkspace() {
       to: alias(p.to, myId),
     })),
   };
+  $("#boot-shell").hidden = true;
   $("#auth-shell").hidden = true;
+  if (
+    result.household.setupComplete === false &&
+    result.household.ownerId === myId
+  ) {
+    stopSync();
+    $("#app-shell").hidden = true;
+    $("#setup-shell").hidden = false;
+    $("#setup-name").textContent = result.me.name.split(" ")[0];
+    hydrate();
+    return;
+  }
+  $("#setup-shell").hidden = true;
   $("#app-shell").hidden = false;
   render();
   startSync();
@@ -1024,15 +1086,27 @@ function setAuthMode(mode) {
 function showAuth() {
   stopSync();
   document.querySelectorAll("dialog[open]").forEach((d) => d.close());
+  $("#boot-shell").hidden = true;
+  $("#setup-shell").hidden = true;
   $("#app-shell").hidden = true;
   $("#auth-shell").hidden = false;
   $("#page").innerHTML = "";
   setAuthMode("login");
   hydrate();
 }
+function applyAppearance() {
+  document.documentElement.dataset.theme = data.theme || "light";
+  window.SoftHomeAppearance?.apply(data.theme || "light");
+}
 async function boot() {
+  applyAppearance();
   hydrate();
-  showAuth();
+  $("#auth-shell").hidden = true;
+  $("#setup-shell").hidden = true;
+  $("#boot-shell").hidden = false;
+  $("#boot-dots").hidden = false;
+  $("#boot-retry").hidden = true;
+  $("#boot-message").textContent = "Evin hazırlanıyor…";
   try {
     await loadCsrf();
     const url = new URL(location.href),
@@ -1041,11 +1115,13 @@ async function boot() {
     if (reset) {
       passwordResetToken = reset;
       history.replaceState({}, "", location.pathname + location.hash);
+      showAuth();
       setAuthMode("reset");
       return;
     }
     if (token) {
       history.replaceState({}, "", location.pathname + location.hash);
+      showAuth();
       const response = await api("/api/auth/confirm-email", {
         method: "POST",
         body: JSON.stringify({ token }),
@@ -1053,18 +1129,23 @@ async function boot() {
       authMessage(response.message);
       return;
     }
-    try {
-      await loadWorkspace();
-    } catch (e) {
-      if (e.status !== 401) authMessage(e.message, true);
-    }
+    await loadWorkspace();
   } catch (e) {
-    authMessage(e.message, true);
+    if (e.status === 401) {
+      if ($("#auth-shell").hidden) showAuth();
+    } else if (!$("#auth-shell").hidden) authMessage(e.message, true);
+    else {
+      $("#boot-dots").hidden = true;
+      $("#boot-message").textContent =
+        e.message || "Eve bağlanılamadı. Bağlantını kontrol edip tekrar dene.";
+      $("#boot-retry").hidden = false;
+    }
   }
 }
+$("#boot-retry").addEventListener("click", () => void boot());
 document.addEventListener("click", (event) => {
   const mode = event.target.closest("[data-auth-mode]");
-  if (mode && !authBusy) {
+  if (mode && !authBusy && !$("#auth-shell").hidden) {
     setAuthMode(mode.dataset.authMode);
     ($("#email-group").hidden ? $("#auth-password") : $("#auth-email")).focus();
   }
@@ -1175,7 +1256,6 @@ $("#auth-form").addEventListener("submit", async (event) => {
             ...(mode === "register"
               ? {
                   name: name.value.trim(),
-                  householdName: $("#auth-house").value.trim(),
                 }
               : {}),
           };
@@ -1192,9 +1272,7 @@ $("#auth-form").addEventListener("submit", async (event) => {
       await loadCsrf();
       await loadWorkspace();
       if (mode === "verify")
-        showToast(
-          "Hesabın başarıyla oluşturuldu. Ev arkadaşlarını davet edebilirsin.",
-        );
+        showToast("Hesabın başarıyla doğrulandı. Şimdi evini seç.");
     } else if (["register", "reset", "reset-code"].includes(mode)) {
       if (mode === "reset") passwordResetToken = "";
       setAuthMode("login");
@@ -1276,35 +1354,177 @@ document.addEventListener("click", async (event) => {
   }
 });
 document.addEventListener("submit", async (event) => {
-  if (!["house-form", "join-form"].includes(event.target.id)) return;
+  if (event.target.id !== "house-form") return;
   event.preventDefault();
   const form = new FormData(event.target),
-    button = event.target.querySelector("[type=submit]");
+    button = event.target.querySelector('[type="submit"]');
   button.disabled = true;
   try {
-    if (event.target.id === "house-form") {
-      const budgetCents = parseCents(form.get("budget"));
-      if (!Number.isFinite(budgetCents) || budgetCents <= 0)
-        throw new Error("Geçerli bir aylık bütçe gir.");
-      await api("/api/workspace/household", {
-        method: "PUT",
-        body: JSON.stringify({
-          name: String(form.get("name")).trim(),
-          budgetCents,
-        }),
-      });
-    } else {
-      await api("/api/workspace/household/join", {
-        method: "POST",
-        body: JSON.stringify({ code: String(form.get("code")).trim() }),
-      });
-    }
+    const budgetCents = parseCents(form.get("budget"));
+    if (!Number.isFinite(budgetCents) || budgetCents <= 0)
+      throw Error("Geçerli bir aylık bütçe gir.");
+    await api("/api/workspace/household", {
+      method: "PUT",
+      body: JSON.stringify({
+        name: String(form.get("name")).trim(),
+        budgetCents,
+      }),
+    });
+    closeDialog($("#info-dialog"));
     await loadWorkspace();
-    showToast("Ev bilgileri güncellendi.");
+    showToast("Ev ayarları kaydedildi.");
   } catch (e) {
     showToast(e.message);
     button.disabled = false;
   }
+});
+document.addEventListener("click", (event) => {
+  const choice = event.target.closest("[data-setup-choice]");
+  if (!choice) return;
+  const mode = choice.dataset.setupChoice;
+  $("#setup-choices").hidden = !!mode;
+  $("#home-create-form").hidden = mode !== "create";
+  $("#home-join-form").hidden = mode !== "join";
+  $("#setup-message").hidden = true;
+  if (mode) $(mode === "create" ? "#setup-house-name" : "#setup-code").focus();
+});
+document.addEventListener("submit", async (event) => {
+  if (!["home-create-form", "home-join-form"].includes(event.target.id)) return;
+  event.preventDefault();
+  if (event.target.dataset.busy === "true") return;
+  event.target.dataset.busy = "true";
+  const form = new FormData(event.target),
+    button = event.target.querySelector('[type="submit"]');
+  button.disabled = true;
+  $("#setup-message").hidden = true;
+  try {
+    if (event.target.id === "home-create-form") {
+      const name = String(form.get("name")).trim(),
+        budgetCents = parseCents(form.get("budget"));
+      if (
+        !name ||
+        name.length > 80 ||
+        !Number.isFinite(budgetCents) ||
+        budgetCents <= 0
+      )
+        throw Error("Ev adını ve aylık bütçeyi kontrol et.");
+      await api("/api/workspace/household/setup", {
+        method: "POST",
+        body: JSON.stringify({ name, budgetCents }),
+      });
+    } else {
+      const code = String(form.get("code")).trim();
+      if (!code) throw Error("Ev arkadaşının davet kodunu gir.");
+      await api("/api/workspace/household/join", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+    }
+    history.replaceState({}, "", location.pathname + "#overview");
+    await loadWorkspace();
+    showToast("Evine hoş geldin.");
+  } catch (e) {
+    $("#setup-message").textContent = e.message;
+    $("#setup-message").hidden = false;
+  } finally {
+    button.disabled = false;
+    delete event.target.dataset.busy;
+  }
+});
+function setRefreshIndicator(visible, label = "Güncelleniyor…") {
+  $("#pull-refresh").hidden = !visible;
+  $("#pull-refresh").classList.toggle(
+    "is-refreshing",
+    visible && !!refreshPromise,
+  );
+  if ($("#refresh-label").textContent !== label)
+    $("#refresh-label").textContent = label;
+  document.querySelectorAll('[data-action="refresh"]').forEach((b) => {
+    b.disabled = visible && !!refreshPromise;
+    b.setAttribute("aria-busy", String(visible && !!refreshPromise));
+  });
+}
+function refreshWorkspace() {
+  if (refreshPromise) return refreshPromise;
+  if ($("#app-shell").hidden || document.querySelector("dialog[open]")) {
+    setRefreshIndicator(false);
+    $("#pull-refresh").style.removeProperty("--pull-size");
+    return Promise.resolve();
+  }
+  refreshPromise = (async () => {
+    try {
+      await loadWorkspace();
+      await syncWorkspace();
+      showToast("Evin güncel.");
+    } catch (e) {
+      if (e.status !== 401) showToast(e.message);
+    } finally {
+      refreshPromise = null;
+      setRefreshIndicator(false);
+      $("#pull-refresh").style.removeProperty("--pull-size");
+    }
+  })();
+  setRefreshIndicator(true);
+  return refreshPromise;
+}
+let pullStart = null,
+  pullDistance = 0;
+document.addEventListener(
+  "touchstart",
+  (event) => {
+    if (
+      event.touches.length !== 1 ||
+      window.scrollY > 0 ||
+      $("#app-shell").hidden ||
+      refreshPromise ||
+      document.querySelector("dialog[open]") ||
+      event.target.closest("input,textarea,select,button")
+    )
+      return;
+    pullStart = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+    pullDistance = 0;
+  },
+  { passive: true },
+);
+document.addEventListener(
+  "touchmove",
+  (event) => {
+    if (!pullStart || event.touches.length !== 1) return;
+    const dy = event.touches[0].clientY - pullStart.y,
+      dx = Math.abs(event.touches[0].clientX - pullStart.x);
+    if (dy <= 0 || dx > Math.abs(dy)) {
+      pullStart = null;
+      setRefreshIndicator(false);
+      return;
+    }
+    if (dy > 12) {
+      if (event.cancelable) event.preventDefault();
+      pullDistance = Math.min(dy * 0.55, 90);
+      $("#pull-refresh").style.setProperty("--pull-size", pullDistance + "px");
+      setRefreshIndicator(
+        true,
+        pullDistance >= 64
+          ? "Yenilemek için bırak"
+          : "Yenilemek için aşağı çek",
+      );
+    }
+  },
+  { passive: false },
+);
+function finishPull(cancelled = false) {
+  if (!pullStart) return;
+  pullStart = null;
+  const trigger = !cancelled && pullDistance >= 64;
+  pullDistance = 0;
+  if (trigger) void refreshWorkspace();
+  else {
+    setRefreshIndicator(false);
+    $("#pull-refresh").style.removeProperty("--pull-size");
+  }
+}
+document.addEventListener("touchend", () => finishPull(), { passive: true });
+document.addEventListener("touchcancel", () => finishPull(true), {
+  passive: true,
 });
 
 boot();

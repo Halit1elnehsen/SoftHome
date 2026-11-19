@@ -28,7 +28,9 @@ Supabase kod uzunluğu 6 olmalıdır. Kodun geçerlilik süresi Supabase Auth ay
 
 ## Aynı eve katılma
 
-Herkes kendi e-postası ve şifresiyle kayıt olur. E-posta kodu doğrulanmadan ortak verilere erişilemez. İlk kullanıcı **Ayarlar → Katılım kodu oluştur** ile ev kodu oluşturur. Arkadaşları kendi hesaplarında **Ayarlar → Eve katıl** alanına bu kodu yazar. Kod 7 gün geçerlidir; yeni kod eskisini geçersiz kılar. E-posta doğrulama kodu ve ev katılım kodu farklıdır.
+Herkes kendi e-postası ve şifresiyle kayıt olur. Kayıtta ev adı istenmez. E-posta kodu doğrulandıktan sonra **Yeni ev kur** veya **Davet koduyla katıl** seçilir. Ev kuran kişi adını ve bütçesini bu aşamada belirler; katılan kişi yalnızca arkadaşının davet kodunu yazar.
+
+Ev sahibi **Profilim ve ayarlar → Ev arkadaşlarını davet et** yoluyla katılım kodu oluşturur. Kod 7 gün geçerlidir; yeni kod eskisini geçersiz kılar. E-posta doğrulama kodu ve ev katılım kodu farklıdır. Ev adı/bütçesi yalnızca ev sahibinin **Profilim ve ayarlar → Ev ayarları** bölümünde düzenlenir. Çıkış da profil ayarlarındadır. Hazır bir evin sayfasında yeniden katılım formu gösterilmez.
 
 Kendi evinde kayıt veya başka üye bulunan kişi doğrudan başka eve taşınamaz; kayıtlar yanlışlıkla başka eve taşınmaz. Eski sahipsiz harcamalar yalnızca ödeyen ve bütün katılımcılar doğrulanmış olarak aynı eve katılınca o eve bağlanır.
 
@@ -38,6 +40,7 @@ Bu depodaki `supabase/migrations/20261117173936_free_private_household.sql`, **m
 
 - `20261117112947_upgrade_softhome_shared_accounts`: EF şeması ve tablo RLS koruması.
 - `20261117173936_free_private_household`: doğrulanmış Auth hesapları, özel RPC işlemleri, özel fatura deposu ve eve göre Realtime yetkisi.
+- `20261119184738_profile_house_onboarding`: yeni hesapların ev seçimi, `Households.SetupCompleted` durumu ve yalnızca ev sahibinin tamamlayabildiği kurulum RPC'si. Mevcut evler hazır olarak korunur; önceki RPC'ler geçerlidir.
 
 İlk geçişin kaynağı `supabase/bootstrap/upgrade-existing-supabase.sql` dosyasıdır. Bu depo tam bir `supabase db reset` başlangıç zinciri içermez; CLI ile yeni projeye toplu `db push` yapmadan mevcut geçiş geçmişini eşleyin. Canlı projenin geçmişini elle silmeyin.
 
@@ -71,3 +74,9 @@ cd android
 Java 17 ve Android SDK 34 gerekir. Varsayılan APK, HTTPS WebViewAssetLoader adresinden paketli arayüzü açar. Açık HTTP ve dosya erişimi kapalıdır. Oturumun başka bir telefona yedekle taşınmaması için Android backup kapalıdır. Geliştirme APK'sı debug imzalıdır; dağıtım Release'i özel keystore gerektirir. [İmza ve yedek kılavuzuna](android-release.md) bak. Mağazaya yayın yapılmaz.
 
 Otomatik testler sentetik hesaplarla yanlış kodu, kayıt/şifre kurtarma ekranlarını, ev izolasyonunu, kuruş paylaşımını, tekrar ödeme kaydını, bildirim okunma durumunu ve iptal edilmiş oturumu kapsar. Gerçek Gmail teslimatı ve gerçek telefonda ilk kayıt, kurulmuş APK ile ayrıca denenmelidir; testler bu teslimatın yapıldığını iddia etmez.
+
+## 1.4 açılış ve görünüm
+
+Oturum kontrolü tamamlanana kadar giriş/kayıt ekranı gizli kalır. Geçici bağlantı hatası oturumu kapatmaz; yükleme görünümünden yeniden denenebilir. Profil düğmesi küçük ekranlarda da görünür. Android durum ve gezinme çubukları, seçilen temaya uygun renk ve simge kontrastıyla güncellenir; sistem saati ve hareket çubuğu korunur.
+
+Sayfanın en üstünde aşağı çekip bırakmak ortak verileri yeniler. Yatay üç nokta yüklemeyi gösterir. Üstteki yenile düğmesi de aynı işi yapar. Aynı anda başlayan yenilemeler birleştirilir; açık düzenleme penceresinde taslak korunur. Paylaşım sayfası önce ödeme yönlerini, ardından her kişinin ödediği harcamaları listeler. Hesaplama ve kuruş paylaşımı kuralları değişmez.

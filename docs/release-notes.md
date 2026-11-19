@@ -1,12 +1,14 @@
-SoftHome 1.3.0
+SoftHome 1.4.0
 
-- Fatura eklerken kamerayla çekme veya galeriden seçme seçenekleri.
-- Kamera için çalışma zamanı izni, reddetme/iptal akışı ve özel FileProvider fotoğraf alanı.
-- Modern Android geri hareketi desteği.
-- Özel release imzası; eksik anahtarda debug imzasına düşmeden derleme hatası.
-- Supabase etkin sistem olarak korunur; eski .NET sunucusu legacy/ altında arşivlenir.
-- Kaynak deposundan APK ve .NET obj çıktıları kaldırıldı; test yolları düzeltildi.
+- Kayıtlı oturum açılırken giriş/kayıt ekranı görünmez; geçici ağ hatası için yeniden deneme görünümü.
+- Ad, doğrulanmış e-posta, ev ve rol bilgilerini gösteren profil; çıkış profil ayarlarında.
+- Ev kurma/katılma seçimi e-posta doğrulamasından sonra yapılır. Katılan kişiden ev adı istenmez.
+- Ev adı ve bütçe yalnızca ev sahibinin profil ayarlarında düzenlenir.
+- Paylaşım ekranında doğrudan kimin kime ödeyeceği ve kişi kişi harcama listeleri.
+- Yatay üç nokta göstergeli aşağı çekerek yenileme ve taslak koruması.
+- Mevcut renklerle basılma derinliği olan düğmeler; küçük ekranlarda da görünür profil simgesi.
+- Android üst/alt sistem çubukları açık/koyu görünümle eşleşir.
 
-İlk özel imzaya geçişte eski debug APK'sını kaldırmak gerekebilir. Supabase'deki kayıtlar korunur; tekrar giriş gerekir. Sonraki güncellemeler aynı özel anahtarla hazırlanmalıdır.
+Mevcut evler ve kayıtlar korunur. Supabase profile_house_onboarding geçişi uygulanmalıdır. Aynı özel release anahtarı kullanılır; eski debug APK'dan ilk geçişte yeniden kurulum gerekebilir. Supabase kayıtları silinmez.
 
-Fiziksel telefonda kamera ve gerçek Gmail ile şifre kurtarma kabul testi henüz tamamlanmış değildir. Adımlar: docs/android-release.md. Bildirimler uygulama açıkken gelir; uygulama kapalıyken sistem push bildirimi yoktur.
+Tarayıcı, otomatik test ve Android derleme kontrolleri yapılır. Gerçek telefonda kamera, sistem çubukları ve gerçek Gmail ile şifre kurtarma ayrıca kontrol edilmelidir. Bildirimler uygulama açıkken gelir; kapalıyken sistem push bildirimi yoktur.

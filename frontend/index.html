@@ -17,15 +17,115 @@
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script src="js/appearance.js"></script>
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="css/accounts.css" />
+    <link rel="stylesheet" href="css/experience.css" />
     <script src="js/backend-config.js" defer></script>
     <script src="js/vendor/supabase.js" defer></script>
     <script src="js/supabase-api.js" defer></script>
     <script src="js/app.js" defer></script>
   </head>
   <body>
-    <section id="auth-shell" class="auth-shell" aria-label="SoftHome hesabı">
+    <section
+      id="boot-shell"
+      class="boot-shell"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="boot-mark" data-icon="home" aria-hidden="true"></div>
+      <strong class="boot-brand">softhome.</strong>
+      <div class="loading-dots" id="boot-dots" aria-hidden="true">
+        <i></i><i></i><i></i>
+      </div>
+      <p id="boot-message">Evin hazırlanıyor…</p>
+      <button class="button button-secondary" id="boot-retry" hidden>
+        Tekrar dene
+      </button>
+    </section>
+    <section
+      id="setup-shell"
+      class="setup-shell"
+      hidden
+      aria-labelledby="setup-title"
+    >
+      <div class="setup-card">
+        <a class="setup-brand" href="./">softhome.</a>
+        <p class="eyebrow">HESABIN HAZIR</p>
+        <h1 id="setup-title">Birlikte başlayalım.</h1>
+        <p class="setup-description">
+          <strong id="setup-name"></strong>, kendi evini kurabilir veya
+          arkadaşının davet koduyla aynı eve katılabilirsin.
+        </p>
+        <div class="setup-choices" id="setup-choices">
+          <button class="setup-choice" data-setup-choice="create">
+            <span data-icon="building"></span><strong>Yeni ev kur</strong
+            ><small>Evine bir ad ver, arkadaşlarını davet et.</small
+            ><span data-icon="arrow"></span>
+          </button>
+          <button class="setup-choice" data-setup-choice="join">
+            <span data-icon="users"></span><strong>Davet koduyla katıl</strong
+            ><small>Arkadaşının kurduğu eve kendi hesabınla katıl.</small
+            ><span data-icon="arrow"></span>
+          </button>
+        </div>
+        <form id="home-create-form" class="setup-form" hidden>
+          <button type="button" class="text-button" data-setup-choice="">
+            ← Seçime dön
+          </button>
+          <label for="setup-house-name">Evinin adı</label
+          ><input
+            id="setup-house-name"
+            name="name"
+            placeholder="Örn. Bizim Ev"
+            maxlength="80"
+            required
+          />
+          <label for="setup-budget">Aylık bütçe (₺)</label
+          ><input
+            id="setup-budget"
+            name="budget"
+            inputmode="decimal"
+            value="30000"
+            required
+          />
+          <button class="button button-primary" type="submit">
+            Evimi oluştur <span data-icon="arrow"></span>
+          </button>
+        </form>
+        <form id="home-join-form" class="setup-form" hidden>
+          <button type="button" class="text-button" data-setup-choice="">
+            ← Seçime dön
+          </button>
+          <label for="setup-code">Ev davet kodu</label
+          ><input
+            id="setup-code"
+            name="code"
+            placeholder="Ev arkadaşının paylaştığı kod"
+            maxlength="100"
+            autocomplete="off"
+            required
+          />
+          <p class="section-note">
+            Bu kod ev arkadaşının profilindeki davet bölümünden alınır. E-posta
+            doğrulama kodun değildir.
+          </p>
+          <button class="button button-primary" type="submit">
+            Eve katıl <span data-icon="arrow"></span>
+          </button>
+        </form>
+        <p id="setup-message" class="field-error" role="status" hidden></p>
+        <button class="quiet-button setup-logout" data-action="logout">
+          Hesabımdan çıkış yap
+        </button>
+      </div>
+    </section>
+    <section
+      id="auth-shell"
+      class="auth-shell"
+      aria-label="SoftHome hesabı"
+      hidden
+    >
       <div class="auth-story">
         <a class="brand" href="./" aria-label="SoftHome ana sayfa"
           ><span class="brand-mark" data-icon="home"></span
@@ -127,18 +227,9 @@
                 aria-describedby="name-error"
               />
               <p id="name-error" class="auth-field-error" hidden></p>
-              <label for="auth-house"
-                >Evinizin adı
-                <span class="optional">(isteğe bağlı)</span></label
-              ><input
-                id="auth-house"
-                name="householdName"
-                placeholder="Örn. Bizim Ev"
-                maxlength="80"
-              />
               <p class="auth-field-note">
-                Arkadaşının evine giriş yaptıktan sonra katılım koduyla
-                katılabilirsin.
+                E-postanı doğruladıktan sonra ev kurmayı veya davet koduyla
+                katılmayı seçeceksin.
               </p>
             </div>
             <div id="email-group">
@@ -320,8 +411,8 @@
               ><small id="profile-role">Ev arkadaşı</small></span
             ><button
               class="icon-button"
-              data-action="house"
-              aria-label="Ev ayarları"
+              data-action="profile"
+              aria-label="Profilim ve ayarlar"
             >
               <span data-icon="settings"></span>
             </button>
@@ -337,8 +428,15 @@
           </div>
           <a class="mobile-brand" href="#overview">softhome<span>.</span></a>
           <div class="topbar-actions">
-            <button class="quiet-logout" data-action="logout">Çıkış yap</button
-            ><button
+            <button
+              class="icon-button refresh-button"
+              data-action="refresh"
+              aria-label="Ev verilerini yenile"
+              title="Yenile"
+            >
+              <span class="refresh-symbol" aria-hidden="true">•••</span>
+            </button>
+            <button
               class="icon-button mobile-theme"
               data-action="theme"
               aria-label="Açık veya koyu görünümü değiştir"
@@ -352,12 +450,23 @@
               <span data-icon="bell"></span><i hidden></i></button
             ><button
               class="avatar avatar-me profile-button"
-              data-action="house"
-              aria-label="Hesabım ve ev arkadaşları"
+              data-action="profile"
+              aria-label="Profilim ve ayarlar"
             ></button>
           </div>
         </header>
         <main id="main" tabindex="-1">
+          <div
+            id="pull-refresh"
+            class="pull-refresh"
+            role="status"
+            aria-live="polite"
+            hidden
+          >
+            <span class="loading-dots" aria-hidden="true"
+              ><i></i><i></i><i></i></span
+            ><span id="refresh-label">Yenilemek için bırak</span>
+          </div>
           <p id="sync-status" role="status" class="sync-status">
             Eve bağlanılıyor…
           </p>

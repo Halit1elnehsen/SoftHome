@@ -1,6 +1,6 @@
 # Android imzası, yedek ve Release
 
-Sürüm `1.3.0` (`versionCode=4`) özel bir RSA 3072 / PKCS12 anahtarıyla imzalanır. Release derlemesi gerekli ayarlar olmadan hata verir; debug imzasına düşmez.
+Sürüm `1.4.0` (`versionCode=5`) özel bir RSA 3072 / PKCS12 anahtarıyla imzalanır. Release derlemesi gerekli ayarlar olmadan hata verir; debug imzasına düşmez.
 
 ## İmza anahtarını koruma
 
@@ -49,7 +49,7 @@ Yetkili bir `gh` oturumunda, özel yedeği açtığın klasörden bu dört değe
 python android/scripts/configure-signing.py /OZEL/YEDEK/KLASORU --repo Halit1elnehsen/SoftHome
 ```
 
-Bu işlem için GitHub bağlantısının Repository Secrets yazma yetkisi gerekir. Ardından **Actions → Signed Android release → Run workflow** seç, sürüm etiketini Android `versionName` ile eşleştir (`v1.3.0`). İş; testleri, Android lint'i ve imza doğrulamasını çalıştırır, APK'yı ve SHA-256 dosyasını Release'e yükler. Anahtarı job bitince runner'dan siler.
+Bu işlem için GitHub bağlantısının Repository Secrets yazma yetkisi gerekir. Ardından **Actions → Signed Android release → Run workflow** seç, sürüm etiketini Android `versionName` ile eşleştir (`v1.4.0`). İş; testleri, Android lint'i ve imza doğrulamasını çalıştırır, APK'yı ve SHA-256 dosyasını Release'e yükler. Anahtarı job bitince runner'dan siler.
 
 Yerelde hazır ve doğrulanmış bir APK da `gh release create ... SoftHome.apk SHA256SUMS.txt` ile yüklenebilir. Kullanılan GitHub bağlantısı `uploads.github.com` adresine yetkili dosya yüklemeyi desteklemelidir. Başarısız yüklemeyi tamamlanmış dağıtım gibi değerlendirme.
 
@@ -67,3 +67,5 @@ Bu kontroller bağlı fiziksel Android telefonda yapılmalıdır; derleme veya t
 Supabase **Reset password** şablonu `{{ .Token }}` içermelidir. Gmail günlük gönderim sınırları geçerlidir. Ev kullanımında takip edilebilir; daha büyük kullanım için SMTP hizmeti yeniden değerlendirilmelidir. Bu sürüm için ücretli hizmet açılmaz.
 
 Bu sürümün açık sertifika SHA-256 izi: `03277fd74ecb192fedea8d347a3a8bfa9db5af2d5d1640dd722851321dcb25b2`. Bu parmak izi gizli anahtar değildir; yeni APK imzasını karşılaştırmak için kullanılır.
+
+1.4.0, 1.3.0 için oluşturulan aynı özel anahtarı kullanır. İmza anahtarı yenilenmez. Telefon kabul testine kayıtlı oturumla yeniden açılış, profil bilgileri, yeni hesapla ev kurma/katılma, üst/alt çubuk renkleri ve aşağı çekerek yenileme de eklenmelidir.

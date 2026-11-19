@@ -706,9 +706,6 @@ body:has(#auth-shell:not([hidden])) .skip {
   .auth-card h2 {
     font-size: 26px;
   }
-  .topbar-actions .profile-button {
-    display: none;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-submit.is-loading::after {
